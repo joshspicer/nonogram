@@ -1,0 +1,25 @@
+# Python virtual environment
+venv/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# matplotlib cache
+.matplotlib/
+
+# Other common files to ignore
+.DS_Store
+.env
+.venv
+env/
+ENV/
