@@ -4,7 +4,7 @@ Squared Away Nonogram Generator
 
 This program generates clues for a two-phase nonogram puzzle:
 - Phase 1: Shading clues (standard nonogram rules)
-- Phase 2: Erasing clues (indicating which shaded cells should be erased)
+- Phase 2: Erasing clues (indicating that any shaded cells in that range should be erased)
 
 The program also visualizes the puzzle with matplotlib.
 """
@@ -106,8 +106,7 @@ class NonoGramVisualizer:
         
     def setup_figure(self):
         # Create the figure with enough space for clues
-        figsize = (10, 10)
-        self.fig, self.ax = plt.subplots(figsize=figsize)
+        self.fig, self.ax = plt.subplots()
         
         # Set title based on current phase
         self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
@@ -123,7 +122,7 @@ class NonoGramVisualizer:
         
     def format_erasing_clue(self, ranges):
         if not ranges:
-            return "None"
+            return ""
         return ", ".join([f"{start}-{end}" for start, end in ranges])
             
     def draw_puzzle(self):
@@ -166,33 +165,29 @@ class NonoGramVisualizer:
                                                hatch='///', alpha=0.3)
                         self.ax.add_patch(rect)
         
-        # Add row clues
+        # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
             clue_text = ' '.join(map(str, clues))
+            # -- Phase 1 --
             self.ax.text(-0.5, self.height-i-0.5, clue_text, 
                         ha='right', va='center', fontsize=10)
-            
-            # In phase 2, also show erasing clues
-            if self.current_phase == 2 and self.erasing_row_clues[i]:
-                erasing_text = self.format_erasing_clue(self.erasing_row_clues[i])
-                if erasing_text != "None":
-                    self.ax.text(-0.5, self.height-i-0.8, f"Erase: {erasing_text}", 
-                                ha='right', va='center', fontsize=8, color='red')
+            # -- Phase 2 --
+            erasing_text = self.format_erasing_clue(self.erasing_row_clues[i])
+            if erasing_text != "None":
+                self.ax.text(-0.5, self.height-i-0.8, erasing_text, 
+                            ha='right', va='center', fontsize=10, color='red')
         
-        # Add column clues
+        # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
             clue_text = '\n'.join(map(str, clues))
+            # -- Phase 1 --
             self.ax.text(j+0.5, self.height+0.1, clue_text, 
                         ha='center', va='bottom', fontsize=10)
-            
-            # In phase 2, also show erasing clues
-            if self.current_phase == 2 and self.erasing_col_clues[j]:
-                erasing_text = self.format_erasing_clue(self.erasing_col_clues[j])
-                if erasing_text != "None":
-                    # Position the erasing text to the right of the column
-                    self.ax.text(j+0.5, self.height+col_offset-0.5, f"E: {erasing_text}", 
-                                ha='center', va='bottom', fontsize=8, color='red',
-                                rotation=90)
+            # -- Phase 2 --
+            erasing_text = '\n'.join(self.format_erasing_clue(self.erasing_col_clues[j]))
+            if erasing_text != "None":
+                self.ax.text(j+0.8, self.height+0.1, erasing_text, 
+                            ha='center', va='bottom', fontsize=10, color='red')
         
         # Set the view limits
         self.ax.set_xlim(-row_offset, self.width)
@@ -201,12 +196,6 @@ class NonoGramVisualizer:
         # Hide axis ticks
         self.ax.set_xticks([])
         self.ax.set_yticks([])
-        
-        # Add grid labels
-        for i in range(self.height):
-            self.ax.text(-0.1, self.height-i-0.5, f"{i+1}", ha='center', va='center', fontweight='bold')
-        for j in range(self.width):
-            self.ax.text(j+0.5, -0.1, f"{j+1}", ha='center', va='center', fontweight='bold')
             
         plt.draw()
         
