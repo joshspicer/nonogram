@@ -6,7 +6,7 @@ This program generates clues for a two-phase nonogram puzzle:
 - Phase 1: Shading clues (standard nonogram rules)
 - Phase 2: Erasing clues (indicating what remains after erasing the X cells)
 
-The program also visualizes the puzzle with matplotlib.
+The program also visualizes the puzzle with matplotlib and provides an editor mode.
 """
 import sys
 import matplotlib.pyplot as plt
@@ -86,10 +86,11 @@ def generate_erasing_clues(grid):
     return row_clues, col_clues
 
 class NonoGramVisualizer:
-    def __init__(self, grid):
+    def __init__(self, grid, editor_mode=False):
         self.grid = grid
         self.height = len(grid)
         self.width = len(grid[0])
+        self.editor_mode = editor_mode
         
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
@@ -105,17 +106,66 @@ class NonoGramVisualizer:
         self.current_phase = 0  # 0: empty, 1: after shading, 2: after erasing
         self.phases = ["Initial Grid", "Phase 01: Apply foundation protocol", "Phase 02: Execute refinement protocol"]
         
+        if editor_mode:
+            self.current_phase = 2  # Show the final state in editor mode
+        
     def setup_figure(self):
         # Create the figure with enough space for clues
         self.fig, self.ax = plt.subplots()
         
         # Set title based on current phase
-        self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
+        if self.editor_mode:
+            self.fig.suptitle("Nonogram Editor Mode", fontsize=16)
+        else:
+            self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
         
         # Create "Next" button
-        self.next_button_ax = plt.axes([0.8, 0.05, 0.1, 0.04])
-        self.next_button = Button(self.next_button_ax, 'Next Phase')
-        self.next_button.on_clicked(self.next_phase)
+        if not self.editor_mode:
+            self.next_button_ax = plt.axes([0.8, 0.05, 0.1, 0.04])
+            self.next_button = Button(self.next_button_ax, 'Next Phase')
+            self.next_button.on_clicked(self.next_phase)
+        else:
+            # Create "Save" button for editor mode
+            self.save_button_ax = plt.axes([0.8, 0.05, 0.1, 0.04])
+            self.save_button = Button(self.save_button_ax, 'Save')
+            self.save_button.on_clicked(self.save_grid)
+            
+            # Connect the click event for editor mode
+            self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+        
+    def on_click(self, event):
+        """Handle mouse clicks in editor mode"""
+        if event.xdata is None or event.ydata is None:
+            return
+        
+        # Convert click coordinates to grid indices
+        col = int(event.xdata)
+        row = self.height - 1 - int(event.ydata)
+        
+        # Check if the click is within the grid
+        if 0 <= row < self.height and 0 <= col < self.width:
+            # Cycle through states: empty (-) -> shaded (#) -> erased (X) -> empty (-)
+            if self.grid[row][col] == '-':
+                self.grid[row][col] = '#'
+            elif self.grid[row][col] == '#':
+                self.grid[row][col] = 'X'
+            else:
+                self.grid[row][col] = '-'
+                
+            # Update clues
+            self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
+            self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+            
+            # Redraw the puzzle
+            self.draw_puzzle()
+    
+    def save_grid(self, event=None):
+        """Save the current grid to a file"""
+        filename = "nonogram_puzzle.txt"
+        with open(filename, 'w') as f:
+            for row in self.grid:
+                f.write(''.join(row) + '\n')
+        print(f"Puzzle saved to {filename}")
         
     def next_phase(self, event=None):
         self.current_phase = (self.current_phase + 1) % 3
@@ -125,7 +175,10 @@ class NonoGramVisualizer:
         self.ax.clear()
 
         # Set title
-        self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
+        if self.editor_mode:
+            self.fig.suptitle("Nonogram Editor Mode", fontsize=16)
+        else:
+            self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
 
         # Calculate grid offsets for clues
         row_offset = max(1.5, self.max_row_clues * 0.7)
@@ -137,20 +190,20 @@ class NonoGramVisualizer:
         for j in range(self.width + 1):
             self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
 
-        # Fill cells based on phase
+        # Fill cells based on phase or editor mode
         for i in range(self.height):
             for j in range(self.width):
                 cell = self.grid[i][j]
 
-                if self.current_phase == 0:  # Empty grid
+                if self.current_phase == 0 and not self.editor_mode:  # Empty grid
                     # All cells are white
                     pass
-                elif self.current_phase == 1:  # Phase 1: After shading
+                elif self.current_phase == 1 and not self.editor_mode:  # Phase 1: After shading
                     if cell in ['#', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
                         self.ax.add_patch(rect)
-                else:  # Phase 2: After erasing
+                else:  # Phase 2: After erasing or editor mode
                     if cell == '#':  # Keep shaded
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
@@ -210,6 +263,10 @@ def process_nonogram(grid_str):
     visualizer = NonoGramVisualizer(grid)
     visualizer.visualize()
 
+def create_empty_grid(width, height):
+    """Create an empty grid with specified dimensions."""
+    return [['-' for _ in range(width)] for _ in range(height)]
+
 def main():
     print("Squared Away Nonogram Generator")
 
@@ -217,24 +274,47 @@ def main():
     if not sys.stdin.isatty():
         # Reading from file or pipe
         grid_str = sys.stdin.read()
+        process_nonogram(grid_str)
     else:
-        # Reading from keyboard
-        print("Enter your grid below. Use:")
-        print("  - '-' for empty cells")
-        print("  - '#' for cells that remain shaded")
-        print("  - 'X' for cells that are shaded then erased")
-        print("End input with a blank line.")
+        print("Choose an option:")
+        print("1. Enter puzzle data")
+        print("2. Open editor mode")
+        
+        choice = input("Enter your choice (1 or 2): ")
+        
+        if choice == '1':
+            # Reading from keyboard
+            print("Enter your grid below. Use:")
+            print("  - '-' for empty cells")
+            print("  - '#' for cells that remain shaded")
+            print("  - 'X' for cells that are shaded then erased")
+            print("End input with a blank line.")
 
-        grid_lines = []
-        while True:
-            line = input()
-            if not line:
-                break
-            grid_lines.append(line)
+            grid_lines = []
+            while True:
+                line = input()
+                if not line:
+                    break
+                grid_lines.append(line)
 
-        grid_str = '\n'.join(grid_lines)
-
-    process_nonogram(grid_str)
+            grid_str = '\n'.join(grid_lines)
+            process_nonogram(grid_str)
+            
+        elif choice == '2':
+            # Editor mode
+            try:
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    return
+                    
+                grid = create_empty_grid(width, height)
+                visualizer = NonoGramVisualizer(grid, editor_mode=True)
+                visualizer.visualize()
+                
+            except ValueError:
+                print("Please enter valid integers for dimensions")
 
 if __name__ == "__main__":
     main()
