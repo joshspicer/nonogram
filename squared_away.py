@@ -4,7 +4,7 @@ Squared Away Nonogram Generator
 
 This program generates clues for a two-phase nonogram puzzle:
 - Phase 1: Shading clues (standard nonogram rules)
-- Phase 2: Erasing clues (indicating that any shaded cells in that range should be erased)
+- Phase 2: Erasing clues (indicating what remains after erasing the X cells)
 
 The program also visualizes the puzzle with matplotlib.
 """
@@ -52,35 +52,36 @@ def generate_shading_clues(grid):
     return row_clues, col_clues
 
 def generate_erasing_clues(grid):
-    """Generate the phase 2 erasing clues for rows and columns."""
+    """Generate the phase 2 erasing clues for rows and columns.
+    These clues indicate the shaded cells REMAINING after erasing X cells."""
     row_clues = []
     for row in grid:
         clues = []
-        start = None
-        for i, cell in enumerate(row):
-            if cell == 'X' and start is None:
-                start = i + 1  # 1-based indexing
-            elif cell != 'X' and start is not None:
-                clues.append((start, i))  # end is exclusive in 1-based index
-                start = None
-        if start is not None:
-            clues.append((start, len(row)))
-        row_clues.append(clues)
+        count = 0
+        for cell in row:
+            if cell == '#':  # Only remaining # cells after erasing
+                count += 1
+            elif count > 0:
+                clues.append(count)
+                count = 0
+        if count > 0:
+            clues.append(count)
+        row_clues.append(clues if clues else [0])
     
     col_clues = []
     for col_idx in range(len(grid[0])):
         clues = []
-        start = None
+        count = 0
         for row_idx in range(len(grid)):
             cell = grid[row_idx][col_idx]
-            if cell == 'X' and start is None:
-                start = row_idx + 1  # 1-based indexing
-            elif cell != 'X' and start is not None:
-                clues.append((start, row_idx))  # end is exclusive in 1-based index
-                start = None
-        if start is not None:
-            clues.append((start, len(grid)))
-        col_clues.append(clues)
+            if cell == '#':  # Only remaining # cells after erasing
+                count += 1
+            elif count > 0:
+                clues.append(count)
+                count = 0
+        if count > 0:
+            clues.append(count)
+        col_clues.append(clues if clues else [0])
     
     return row_clues, col_clues
 
@@ -120,85 +121,82 @@ class NonoGramVisualizer:
         self.current_phase = (self.current_phase + 1) % 3
         self.draw_puzzle()
         
-    def format_erasing_clue(self, ranges):
-        if not ranges:
-            return ""
-        return ", ".join([f"{start}-{end}" for start, end in ranges])
-            
     def draw_puzzle(self):
         self.ax.clear()
-        
+
         # Set title
         self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
-        
+
         # Calculate grid offsets for clues
         row_offset = max(1.5, self.max_row_clues * 0.7)
         col_offset = max(1.5, self.max_col_clues * 0.6)
-        
+
         # Draw the grid
         for i in range(self.height + 1):
             self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
         for j in range(self.width + 1):
             self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
-            
+
         # Fill cells based on phase
         for i in range(self.height):
             for j in range(self.width):
                 cell = self.grid[i][j]
-                
+
                 if self.current_phase == 0:  # Empty grid
                     # All cells are white
                     pass
                 elif self.current_phase == 1:  # Phase 1: After shading
                     if cell in ['#', 'X']:
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1, 
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
                         self.ax.add_patch(rect)
                 else:  # Phase 2: After erasing
                     if cell == '#':  # Keep shaded
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1, 
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
                         self.ax.add_patch(rect)
                     elif cell == 'X':  # Erased cells get a different color/pattern
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1, 
-                                               facecolor='white', edgecolor='black', 
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                               facecolor='white', edgecolor='black',
                                                hatch='///', alpha=0.3)
                         self.ax.add_patch(rect)
-        
+
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
             clue_text = ' '.join(map(str, clues))
             # -- Phase 1 --
-            self.ax.text(-0.5, self.height-i-0.5, clue_text, 
-                        ha='right', va='center', fontsize=10)
+            self.ax.text(-0.5, self.height-i-0.5, clue_text,
+                         ha='right', va='center', fontsize=10)
             # -- Phase 2 --
-            erasing_text = self.format_erasing_clue(self.erasing_row_clues[i])
-            if erasing_text != "None":
-                self.ax.text(-0.5, self.height-i-0.8, erasing_text, 
-                            ha='right', va='center', fontsize=10, color='red')
-        
+            erasing_clues = self.erasing_row_clues[i]
+            erasing_text = ' '.join(map(str, erasing_clues))
+            if erasing_clues != [0]:
+                self.ax.text(-0.5, self.height-i-0.8, erasing_text,
+                             ha='right', va='center', fontsize=10, color='red')
+
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
             clue_text = '\n'.join(map(str, clues))
             # -- Phase 1 --
-            self.ax.text(j+0.5, self.height+0.1, clue_text, 
-                        ha='center', va='bottom', fontsize=10)
+            self.ax.text(j+0.5, self.height+0.1, clue_text,
+                         ha='center', va='bottom', fontsize=10)
             # -- Phase 2 --
-            erasing_text = '\n'.join(self.format_erasing_clue(self.erasing_col_clues[j]))
-            if erasing_text != "None":
-                self.ax.text(j+0.8, self.height+0.1, erasing_text, 
-                            ha='center', va='bottom', fontsize=10, color='red')
-        
+            erasing_clues = self.erasing_col_clues[j]
+            erasing_text = '\n'.join(map(str, erasing_clues))
+            if erasing_clues != [0]:
+                self.ax.text(j+0.8, self.height+0.1, erasing_text,
+                             ha='center', va='bottom', fontsize=10, color='red')
+
         # Set the view limits
         self.ax.set_xlim(-row_offset, self.width)
         self.ax.set_ylim(-1, self.height + col_offset)
-        
+
         # Hide axis ticks
         self.ax.set_xticks([])
         self.ax.set_yticks([])
-            
+
         plt.draw()
-        
+
     def visualize(self):
         self.setup_figure()
         self.draw_puzzle()
@@ -214,7 +212,7 @@ def process_nonogram(grid_str):
 
 def main():
     print("Squared Away Nonogram Generator")
-    
+
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
         # Reading from file or pipe
@@ -226,16 +224,16 @@ def main():
         print("  - '#' for cells that remain shaded")
         print("  - 'X' for cells that are shaded then erased")
         print("End input with a blank line.")
-        
+
         grid_lines = []
         while True:
             line = input()
             if not line:
                 break
             grid_lines.append(line)
-        
+
         grid_str = '\n'.join(grid_lines)
-    
+
     process_nonogram(grid_str)
 
 if __name__ == "__main__":
