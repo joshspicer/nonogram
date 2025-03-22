@@ -3,8 +3,10 @@
 Squared Away Nonogram Generator
 
 This program generates clues for a two-phase nonogram puzzle:
-- Phase 1: Shading clues (standard nonogram rules)
-- Phase 2: Erasing clues (indicating what remains after erasing the X cells)
+- Phase 1: Shading clues 
+           (standard nonogram rules)
+- Phase 2: Erasing clues 
+           (standard nonogram rules, but the entire grid is filled to start and the clues indicate erasing)
 
 The program also visualizes the puzzle with matplotlib and provides an editor mode.
 """
@@ -19,13 +21,14 @@ def parse_grid(grid_str):
     return [list(line.strip()) for line in grid_str.strip().split('\n')]
 
 def generate_shading_clues(grid):
-    """Generate the phase 1 shading clues for rows and columns."""
+    """Generate the phase 1 shading clues for rows and columns.
+    Cells marked as '1' or 'X' are part of Phase 1 solution."""
     row_clues = []
     for row in grid:
         clues = []
         count = 0
         for cell in row:
-            if cell in ['#', 'X']:  # Both # and X are initially shaded
+            if cell in ['1', 'X']:  # Cells to be shaded in Phase 1
                 count += 1
             elif count > 0:
                 clues.append(count)
@@ -40,7 +43,7 @@ def generate_shading_clues(grid):
         count = 0
         for row_idx in range(len(grid)):
             cell = grid[row_idx][col_idx]
-            if cell in ['#', 'X']:  # Both # and X are initially shaded
+            if cell in ['1', 'X']:  # Cells to be shaded in Phase 1
                 count += 1
             elif count > 0:
                 clues.append(count)
@@ -53,13 +56,13 @@ def generate_shading_clues(grid):
 
 def generate_erasing_clues(grid):
     """Generate the phase 2 erasing clues for rows and columns.
-    These clues indicate the shaded cells REMAINING after erasing X cells."""
+    Cells marked as '2' or 'X' are to be erased in Phase 2."""
     row_clues = []
     for row in grid:
         clues = []
         count = 0
         for cell in row:
-            if cell == '#':  # Only remaining # cells after erasing
+            if cell in ['2', 'X']:  # Cells to be erased in Phase 2
                 count += 1
             elif count > 0:
                 clues.append(count)
@@ -74,7 +77,7 @@ def generate_erasing_clues(grid):
         count = 0
         for row_idx in range(len(grid)):
             cell = grid[row_idx][col_idx]
-            if cell == '#':  # Only remaining # cells after erasing
+            if cell in ['2', 'X']:  # Cells to be erased in Phase 2
                 count += 1
             elif count > 0:
                 clues.append(count)
@@ -91,6 +94,8 @@ class NonoGramVisualizer:
         self.height = len(grid)
         self.width = len(grid[0])
         self.editor_mode = editor_mode
+        self.editor_phase = 1  # Start with Phase 1 in editor mode
+        self.click_enabled = True  # Flag to control click processing
         
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
@@ -115,23 +120,18 @@ class NonoGramVisualizer:
         
         # Set title based on current phase
         if self.editor_mode:
-            self.fig.suptitle("Nonogram Editor Mode", fontsize=16)
+            self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
         else:
             self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
         
-        # Create "Next" button
+        # Create keyboard binding for navigation
         if not self.editor_mode:
-            self.next_button_ax = plt.axes([0.8, 0.05, 0.1, 0.04])
-            self.next_button = Button(self.next_button_ax, 'Next Phase')
-            self.next_button.on_clicked(self.next_phase)
+            self.fig.canvas.mpl_connect('key_press_event', self.handle_key_press)
         else:
-            # Create "Save" button for editor mode
-            self.save_button_ax = plt.axes([0.8, 0.05, 0.1, 0.04])
-            self.save_button = Button(self.save_button_ax, 'Save')
-            self.save_button.on_clicked(self.save_grid)
-            
             # Connect the click event for editor mode
             self.fig.canvas.mpl_connect('button_press_event', self.on_click)
+            # Connect keyboard event for editor mode
+            self.fig.canvas.mpl_connect('key_press_event', self.handle_key_press)
         
     def on_click(self, event):
         """Handle mouse clicks in editor mode"""
@@ -144,13 +144,23 @@ class NonoGramVisualizer:
         
         # Check if the click is within the grid
         if 0 <= row < self.height and 0 <= col < self.width:
-            # Cycle through states: empty (-) -> shaded (#) -> erased (X) -> empty (-)
-            if self.grid[row][col] == '-':
-                self.grid[row][col] = '#'
-            elif self.grid[row][col] == '#':
-                self.grid[row][col] = 'X'
-            else:
-                self.grid[row][col] = '-'
+            # Handle clicks based on the current editor phase
+            if self.editor_phase == 1:
+                # Phase 1: Toggle between empty (-) and phase 1 (1)
+                if self.grid[row][col] == '-':
+                    self.grid[row][col] = '1'
+                else:
+                    self.grid[row][col] = '-'
+            else:  # editor_phase == 2
+                # Phase 2: Toggle between empty (-) and phase 2 (2)
+                if self.grid[row][col] == '-':
+                    self.grid[row][col] = '2'
+                elif self.grid[row][col] == '1':
+                    self.grid[row][col] = 'X'  # Both phase 1 and 2
+                elif self.grid[row][col] == 'X':
+                    self.grid[row][col] = '1'  # Back to just phase 1
+                elif self.grid[row][col] == '2':
+                    self.grid[row][col] = '-'  # Back to empty
                 
             # Update clues
             self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
@@ -160,13 +170,37 @@ class NonoGramVisualizer:
             self.draw_puzzle()
     
     def save_grid(self, event=None):
-        """Save the current grid to a file"""
-        filename = "nonogram_puzzle.txt"
-        with open(filename, 'w') as f:
-            for row in self.grid:
-                f.write(''.join(row) + '\n')
-        print(f"Puzzle saved to {filename}")
-        
+        """Save the current grid to a file or advance to next editor phase"""
+        if self.editor_phase == 1:
+            # Store grid state before transition to prevent bugs
+            grid_copy = [row[:] for row in self.grid]
+            
+            # When in phase 1, advance to phase 2
+            self.editor_phase = 2
+            self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+            print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
+            
+            # Update the button text
+            self.save_button.label.set_text("Complete")
+            
+            # Restore grid state to prevent unwanted changes
+            self.grid = grid_copy
+            
+            # Update clues and redraw
+            self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
+            self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+            self.draw_puzzle()
+        else:
+            # When in phase 2, save the completed puzzle
+            filename = "nonogram_puzzle.txt"
+            with open(filename, 'w') as f:
+                for row in self.grid:
+                    f.write(''.join(row) + '\n')
+            print(f"Puzzle saved to {filename}")
+            
+            # Close the figure
+            plt.close(self.fig)
+            
     def next_phase(self, event=None):
         self.current_phase = (self.current_phase + 1) % 3
         self.draw_puzzle()
@@ -174,15 +208,18 @@ class NonoGramVisualizer:
     def draw_puzzle(self):
         self.ax.clear()
 
-        # Set title
+        # Set title based on editor phase or viewing phase
         if self.editor_mode:
-            self.fig.suptitle("Nonogram Editor Mode", fontsize=16)
+            if self.editor_phase == 1:
+                self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
+            else:
+                self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
         else:
             self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
 
         # Calculate grid offsets for clues
-        row_offset = max(1.5, self.max_row_clues * 0.7)
-        col_offset = max(1.5, self.max_col_clues * 0.6)
+        row_offset = max(2.5, self.max_row_clues * 0.7)
+        col_offset = max(2.5, self.max_col_clues * 0.6)
 
         # Draw the grid
         for i in range(self.height + 1):
@@ -195,48 +232,80 @@ class NonoGramVisualizer:
             for j in range(self.width):
                 cell = self.grid[i][j]
 
-                if self.current_phase == 0 and not self.editor_mode:  # Empty grid
-                    # All cells are white
+                if self.current_phase == 0 and not self.editor_mode:  
+                    # Empty grid in initial phase
                     pass
-                elif self.current_phase == 1 and not self.editor_mode:  # Phase 1: After shading
-                    if cell in ['#', 'X']:
+                elif self.current_phase == 1 and not self.editor_mode:  
+                    # Phase 1: Apply foundation protocol
+                    if cell in ['1', 'X']:
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                               facecolor='gray', edgecolor='black',
+                                               hatch='xxx', alpha=0.7)
+                        self.ax.add_patch(rect)
+                else:  
+                    # Phase 2 or editor mode
+                    if self.editor_mode:
+                        # Show different visualizations based on editor phase
+                        if self.editor_phase == 1:
+                            # Phase 1 editing: show only phase 1 cells
+                            if cell in ['1', 'X']:
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                     facecolor='gray', edgecolor='black',
+                                                     hatch='xxx', alpha=0.7)
+                                self.ax.add_patch(rect)
+                        else:
+                            # Phase 2 editing: show all cells
+                            # First show phase 1 cells
+                            if cell in ['1', 'X']:
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                     facecolor='gray', edgecolor='black')
+                                self.ax.add_patch(rect)
+                            
+                            # Then highlight phase 2 cells
+                            if cell in ['2', 'X']:
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                     facecolor='white', edgecolor='black',
+                                                     hatch='///', alpha=0.7)
+                                self.ax.add_patch(rect)
+                    else:
+                        # Phase 2: Fill everything, then show erased cells
+                        # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
                         self.ax.add_patch(rect)
-                else:  # Phase 2: After erasing or editor mode
-                    if cell == '#':  # Keep shaded
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black')
-                        self.ax.add_patch(rect)
-                    elif cell == 'X':  # Erased cells get a different color/pattern
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='white', edgecolor='black',
-                                               hatch='///', alpha=0.3)
-                        self.ax.add_patch(rect)
+                        
+                        # Then show cells that should be erased with a distinctive pattern
+                        if cell in ['2', 'X']:
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                 facecolor='white', edgecolor='black', 
+                                                 hatch='///', alpha=0.7)
+                            self.ax.add_patch(rect)
 
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
+            # -- Phase 1 clues (black) --
             clue_text = ' '.join(map(str, clues))
-            # -- Phase 1 --
             self.ax.text(-0.5, self.height-i-0.5, clue_text,
                          ha='right', va='center', fontsize=10)
-            # -- Phase 2 --
+            
+            # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_row_clues[i]
-            erasing_text = ' '.join(map(str, erasing_clues))
             if erasing_clues != [0]:
+                erasing_text = ' '.join(map(str, erasing_clues))
                 self.ax.text(-0.5, self.height-i-0.8, erasing_text,
                              ha='right', va='center', fontsize=10, color='red')
 
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
+            # -- Phase 1 clues (black) --
             clue_text = '\n'.join(map(str, clues))
-            # -- Phase 1 --
             self.ax.text(j+0.5, self.height+0.1, clue_text,
                          ha='center', va='bottom', fontsize=10)
-            # -- Phase 2 --
+            
+            # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_col_clues[j]
-            erasing_text = '\n'.join(map(str, erasing_clues))
             if erasing_clues != [0]:
+                erasing_text = '\n'.join(map(str, erasing_clues))
                 self.ax.text(j+0.8, self.height+0.1, erasing_text,
                              ha='center', va='bottom', fontsize=10, color='red')
 
@@ -253,9 +322,51 @@ class NonoGramVisualizer:
     def visualize(self):
         self.setup_figure()
         self.draw_puzzle()
+
+        instruction = "Press ENTER to cycle modes"
+        self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
+                    fontsize=12, fontweight="bold", color="blue",
+                    bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
+            
         plt.tight_layout()
         plt.subplots_adjust(top=0.9, bottom=0.1)
         plt.show()
+
+    def handle_key_press(self, event):
+        """Handle keyboard input for navigation and saving"""
+        if event.key == 'enter':
+            if self.editor_mode:
+                # In editor mode, use Enter to advance phase or save
+                if self.editor_phase == 1:
+                    # Store grid state before transition to prevent bugs
+                    grid_copy = [row[:] for row in self.grid]
+                    
+                    # Advance to phase 2
+                    self.editor_phase = 2
+                    self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                    print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
+                    
+                    # Restore grid state to prevent unwanted changes
+                    self.grid = grid_copy
+                    
+                    # Update clues and redraw
+                    self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
+                    self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+                    self.draw_puzzle()
+                else:
+                    # Save the completed puzzle
+                    filename = "nonogram_puzzle.txt"
+                    with open(filename, 'w') as f:
+                        for row in self.grid:
+                            f.write(''.join(row) + '\n')
+                    print(f"Puzzle saved to {filename}")
+                    
+                    # Close the figure
+                    plt.close(self.fig)
+            else:
+                # In viewing mode, use Enter to advance phase
+                self.current_phase = (self.current_phase + 1) % 3
+                self.draw_puzzle()
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
@@ -276,45 +387,20 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        print("Choose an option:")
-        print("1. Enter puzzle data")
-        print("2. Open editor mode")
-        
-        choice = input("Enter your choice (1 or 2): ")
-        
-        if choice == '1':
-            # Reading from keyboard
-            print("Enter your grid below. Use:")
-            print("  - '-' for empty cells")
-            print("  - '#' for cells that remain shaded")
-            print("  - 'X' for cells that are shaded then erased")
-            print("End input with a blank line.")
-
-            grid_lines = []
-            while True:
-                line = input()
-                if not line:
-                    break
-                grid_lines.append(line)
-
-            grid_str = '\n'.join(grid_lines)
-            process_nonogram(grid_str)
-            
-        elif choice == '2':
-            # Editor mode
-            try:
-                width = int(input("Enter puzzle width: "))
-                height = int(input("Enter puzzle height: "))
-                if width <= 0 or height <= 0:
-                    print("Dimensions must be positive integers")
-                    return
-                    
-                grid = create_empty_grid(width, height)
-                visualizer = NonoGramVisualizer(grid, editor_mode=True)
-                visualizer.visualize()
+        # Editor mode
+        try:
+            width = int(input("Enter puzzle width: "))
+            height = int(input("Enter puzzle height: "))
+            if width <= 0 or height <= 0:
+                print("Dimensions must be positive integers")
+                return
                 
-            except ValueError:
-                print("Please enter valid integers for dimensions")
+            grid = create_empty_grid(width, height)
+            visualizer = NonoGramVisualizer(grid, editor_mode=True)
+            visualizer.visualize()
+            
+        except ValueError:
+            print("Please enter valid integers for dimensions")
 
 if __name__ == "__main__":
     main()
