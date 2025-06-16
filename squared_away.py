@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+import os
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
@@ -378,8 +380,126 @@ def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
     return [['-' for _ in range(width)] for _ in range(height)]
 
+def text_to_nonogram(text, font_size=20, padding=2):
+    """Convert text into a nonogram grid using bitmap rendering.
+    
+    Args:
+        text: The text to convert
+        font_size: Size of the font to use
+        padding: Padding around the text in pixels
+    
+    Returns:
+        A 2D grid list representing the nonogram
+    """
+    # Try to use a system font, fallback to default if not available
+    try:
+        # Try to find a good monospace font
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+            "/System/Library/Fonts/Monaco.ttf",  # macOS
+            "C:/Windows/Fonts/consola.ttf",      # Windows
+        ]
+        
+        font = None
+        for font_path in font_paths:
+            if os.path.exists(font_path):
+                font = ImageFont.truetype(font_path, font_size)
+                break
+        
+        if font is None:
+            # Try to use a larger default font
+            try:
+                # Create a larger version of default font
+                font = ImageFont.load_default()
+                # For small default font, we'll scale up the image later
+            except:
+                font = ImageFont.load_default()
+    except:
+        # Fallback to default font
+        font = ImageFont.load_default()
+    
+    # Create a temporary image to measure text size
+    temp_img = Image.new('RGB', (1, 1), color='white')
+    temp_draw = ImageDraw.Draw(temp_img)
+    
+    # Get text bounding box
+    bbox = temp_draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0] 
+    text_height = bbox[3] - bbox[1]
+    
+    # If using default font (which is typically small), scale up
+    scale_factor = 1
+    if font_size > 15 and text_width < font_size:  # Likely using small default font
+        scale_factor = max(2, font_size // 10)
+    
+    # Create the actual image with padding
+    img_width = max(text_width + 2 * padding, 10) * scale_factor
+    img_height = max(text_height + 2 * padding, 10) * scale_factor
+    
+    # Create image with white background
+    img = Image.new('RGB', (img_width, img_height), color='white')
+    draw = ImageDraw.Draw(img)
+    
+    # Draw text in black (scale up position if needed)
+    text_x = padding * scale_factor
+    text_y = padding * scale_factor
+    
+    if scale_factor > 1:
+        # For small fonts, draw multiple times to make it bolder
+        for dx in range(scale_factor):
+            for dy in range(scale_factor):
+                draw.text((text_x + dx, text_y + dy), text, font=font, fill='black')
+    else:
+        draw.text((text_x, text_y), text, font=font, fill='black')
+    
+    # Convert to grayscale and then to binary
+    img = img.convert('L')
+    
+    # Convert to numpy array and create binary grid
+    img_array = np.array(img)
+    
+    # Create binary mask (black pixels become '1', white pixels become '-')
+    # Use a threshold to handle anti-aliasing
+    threshold = 200  # More permissive threshold for better text capture
+    binary_mask = img_array < threshold
+    
+    # Remove empty rows and columns to make grid more compact
+    # Find bounds of non-empty content
+    rows_with_content = np.any(binary_mask, axis=1)
+    cols_with_content = np.any(binary_mask, axis=0)
+    
+    if np.any(rows_with_content) and np.any(cols_with_content):
+        first_row = np.argmax(rows_with_content)
+        last_row = len(rows_with_content) - np.argmax(rows_with_content[::-1]) - 1
+        first_col = np.argmax(cols_with_content)
+        last_col = len(cols_with_content) - np.argmax(cols_with_content[::-1]) - 1
+        
+        # Crop to content with small padding
+        crop_padding = 1
+        first_row = max(0, first_row - crop_padding)
+        last_row = min(binary_mask.shape[0] - 1, last_row + crop_padding)
+        first_col = max(0, first_col - crop_padding)
+        last_col = min(binary_mask.shape[1] - 1, last_col + crop_padding)
+        
+        binary_mask = binary_mask[first_row:last_row + 1, first_col:last_col + 1]
+    
+    # Convert to grid format
+    grid = []
+    for row in binary_mask:
+        grid_row = []
+        for pixel in row:
+            grid_row.append('1' if pixel else '-')
+        grid.append(grid_row)
+    
+    return grid
+
 def main():
     print("Squared Away Nonogram Generator")
+    print("Options:")
+    print("1. Create puzzle from text/number")
+    print("2. Create blank puzzle (editor mode)")
+    print("3. Load puzzle from file/pipe")
 
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
@@ -387,20 +507,81 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode
+        # Interactive mode - ask user for choice
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
-                return
-                
-            grid = create_empty_grid(width, height)
-            visualizer = NonoGramVisualizer(grid, editor_mode=True)
-            visualizer.visualize()
+            choice = input("\nEnter your choice (1-3): ").strip()
             
+            if choice == '1':
+                # Text to nonogram mode
+                text = input("Enter text or number to convert: ").strip()
+                if not text:
+                    print("No text entered.")
+                    return
+                
+                font_size = input("Enter font size (default 20): ").strip()
+                if font_size:
+                    try:
+                        font_size = int(font_size)
+                    except ValueError:
+                        print("Invalid font size, using default (20)")
+                        font_size = 20
+                else:
+                    font_size = 20
+                
+                print(f"Converting '{text}' to nonogram...")
+                grid = text_to_nonogram(text, font_size)
+                
+                if not grid or not grid[0]:
+                    print("Error: Could not generate grid from text")
+                    return
+                
+                print(f"Generated {len(grid)}x{len(grid[0])} grid")
+                
+                # Ask if user wants to save the grid
+                save_choice = input("Save grid to file? (y/n): ").strip().lower()
+                if save_choice == 'y':
+                    filename = f"text_nonogram_{text.replace(' ', '_')}.txt"
+                    with open(filename, 'w') as f:
+                        for row in grid:
+                            f.write(''.join(row) + '\n')
+                    print(f"Grid saved to {filename}")
+                
+                # Visualize the nonogram
+                visualizer = NonoGramVisualizer(grid)
+                visualizer.visualize()
+                
+            elif choice == '2':
+                # Editor mode
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    return
+                    
+                grid = create_empty_grid(width, height)
+                visualizer = NonoGramVisualizer(grid, editor_mode=True)
+                visualizer.visualize()
+                
+            elif choice == '3':
+                # File loading mode
+                filename = input("Enter filename to load: ").strip()
+                try:
+                    with open(filename, 'r') as f:
+                        grid_str = f.read()
+                    process_nonogram(grid_str)
+                except FileNotFoundError:
+                    print(f"File '{filename}' not found.")
+                except Exception as e:
+                    print(f"Error loading file: {e}")
+            else:
+                print("Invalid choice. Please select 1, 2, or 3.")
+                
         except ValueError:
-            print("Please enter valid integers for dimensions")
+            print("Please enter valid input")
+        except KeyboardInterrupt:
+            print("\nExiting...")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
