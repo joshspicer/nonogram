@@ -387,38 +387,18 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode with presets
-        presets = [
-            (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10),
-            (12, 12), (13, 13), (15, 15), (16, 8), (8, 16),
-            (20, 10), (10, 20), (7, 14), (14, 7), (18, 12), (12, 18),
-            (20, 20), (25, 10), (10, 25), (25, 15), (15, 25),
-            (30, 15), (15, 30), (30, 20), (20, 30), (30, 30),
-            # Even more presets
-            (4, 8), (8, 4), (6, 12), (12, 6), (9, 18), (18, 9),
-            (24, 12), (12, 24), (16, 24), (24, 16), (36, 18), (18, 36),
-            (40, 20), (20, 40), (40, 30), (30, 40), (40, 40),
-            (50, 10), (10, 50), (50, 25), (25, 50), (50, 50),
-            (60, 15), (15, 60), (60, 30), (30, 60), (60, 60),
-            (100, 10), (10, 100), (100, 20), (20, 100), (100, 100),
-        ]
-        print("Select a preset size or enter custom dimensions:")
-        for idx, (w, h) in enumerate(presets, 1):
-            print(f"  {idx}. {w} x {h}")
-        print(f"  {len(presets)+1}. Custom size")
+        # Editor mode
         try:
-            choice = input(f"Enter choice [1-{len(presets)+1}]: ").strip()
-            if choice.isdigit() and 1 <= int(choice) <= len(presets):
-                width, height = presets[int(choice)-1]
-            else:
-                width = int(input("Enter puzzle width: "))
-                height = int(input("Enter puzzle height: "))
+            width = int(input("Enter puzzle width: "))
+            height = int(input("Enter puzzle height: "))
             if width <= 0 or height <= 0:
                 print("Dimensions must be positive integers")
                 return
+                
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
+            
         except ValueError:
             print("Please enter valid integers for dimensions")
 
