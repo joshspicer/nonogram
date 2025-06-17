@@ -393,9 +393,11 @@ def main():
             (10, 10),
             (15, 15),
             (20, 15),
-            (15, 20),
+            (20, 20),
+            (25, 20),
+            (30, 20),
         ]
-        print("Select a preset for puzzle size or enter custom values:")
+        print("\nSelect a puzzle size preset or enter custom dimensions:")
         for idx, (w, h) in enumerate(presets, 1):
             print(f"  {idx}. {w} x {h}")
         print(f"  {len(presets)+1}. Custom size")
