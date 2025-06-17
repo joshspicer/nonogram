@@ -378,6 +378,45 @@ def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
     return [['-' for _ in range(width)] for _ in range(height)]
 
+def get_puzzle_dimensions():
+    """Get puzzle dimensions from user input, either from presets or custom."""
+    print("\nPuzzle Size Options:")
+    print("1. 5x5 (Beginner)")
+    print("2. 10x10 (Intermediate)")
+    print("3. 15x15 (Advanced)")
+    print("4. 20x20 (Expert)")
+    print("5. 25x25 (Master)")
+    print("6. Custom size")
+    
+    while True:
+        try:
+            choice = input("\nSelect an option (1-6): ").strip()
+            
+            if choice == '1':
+                return 5, 5
+            elif choice == '2':
+                return 10, 10
+            elif choice == '3':
+                return 15, 15
+            elif choice == '4':
+                return 20, 20
+            elif choice == '5':
+                return 25, 25
+            elif choice == '6':
+                # Custom size entry
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    continue
+                return width, height
+            else:
+                print("Please enter a number between 1 and 6")
+                continue
+                
+        except ValueError:
+            print("Please enter a valid option")
+
 def main():
     print("Squared Away Nonogram Generator")
 
@@ -389,18 +428,15 @@ def main():
     else:
         # Editor mode
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
-                return
-                
+            width, height = get_puzzle_dimensions()
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
             
         except ValueError:
             print("Please enter valid integers for dimensions")
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user")
 
 if __name__ == "__main__":
     main()
