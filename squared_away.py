@@ -228,86 +228,127 @@ class NonoGramVisualizer:
             self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
 
         # Fill cells based on phase or editor mode
+        import random
+        pastel_palette = [
+            '#f7f7f7', '#ffe0f7', '#e0f7fa', '#fffde7', '#e1bee7', '#f8bbd0',
+            '#dcedc8', '#ffe082', '#b2dfdb', '#c5cae9', '#f0f4c3', '#ffecb3',
+            '#b3e5fc', '#d1c4e9', '#c8e6c9', '#ffccbc', '#f5f5f5', '#e6ee9c',
+            '#fce4ec', '#f3e5f5', '#e0f2f1', '#f9fbe7', '#fff9c4', '#fbe9e7'
+        ]
+        color_phase1 = '#00bcd4'  # cyan
+        color_phase2 = '#ffd600'  # bright yellow
+        color_both = '#d500f9'    # magenta
+        color_grid = '#00c853'    # green grid lines
+        color_erase = '#ff1744'   # hot pink for erasing
+        color_phase1_alt = '#2979ff' # blue accent
+        color_phase2_alt = '#ff9100' # orange accent
+        color_both_alt = '#00e676'   # green accent
+        color_x_highlight = '#ff80ab' # pink highlight for X
+
         for i in range(self.height):
             for j in range(self.width):
                 cell = self.grid[i][j]
+                # Pick a random pastel for empty cells
+                color_empty = random.choice(pastel_palette)
 
-                if self.current_phase == 0 and not self.editor_mode:  
+                if self.current_phase == 0 and not self.editor_mode:
                     # Empty grid in initial phase
-                    pass
-                elif self.current_phase == 1 and not self.editor_mode:  
+                    rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                           facecolor=color_empty, edgecolor=color_grid, alpha=0.9)
+                    self.ax.add_patch(rect)
+                elif self.current_phase == 1 and not self.editor_mode:
                     # Phase 1: Apply foundation protocol
-                    if cell in ['1', 'X']:
+                    if cell == '1':
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black',
-                                               hatch='xxx', alpha=0.7)
+                                               facecolor=color_phase1, edgecolor=color_grid, alpha=0.98)
                         self.ax.add_patch(rect)
-                else:  
+                    elif cell == 'X':
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                               facecolor=color_both, edgecolor=color_x_highlight, alpha=0.98, hatch='xx')
+                        self.ax.add_patch(rect)
+                else:
                     # Phase 2 or editor mode
                     if self.editor_mode:
                         # Show different visualizations based on editor phase
                         if self.editor_phase == 1:
                             # Phase 1 editing: show only phase 1 cells
-                            if cell in ['1', 'X']:
+                            if cell == '1':
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black',
-                                                     hatch='xxx', alpha=0.7)
+                                                       facecolor=color_phase1_alt, edgecolor=color_grid, alpha=0.98)
+                                self.ax.add_patch(rect)
+                            elif cell == 'X':
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                       facecolor=color_both_alt, edgecolor=color_x_highlight, alpha=0.98, hatch='xx')
                                 self.ax.add_patch(rect)
                         else:
                             # Phase 2 editing: show all cells
                             # First show phase 1 cells
-                            if cell in ['1', 'X']:
+                            if cell == '1':
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black')
+                                                       facecolor=color_phase1_alt, edgecolor=color_grid, alpha=0.98)
                                 self.ax.add_patch(rect)
-                            
-                            # Then highlight phase 2 cells
-                            if cell in ['2', 'X']:
+                            elif cell == 'X':
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='white', edgecolor='black',
-                                                     hatch='///', alpha=0.7)
+                                                       facecolor=color_both_alt, edgecolor=color_x_highlight, alpha=0.98, hatch='xx')
+                                self.ax.add_patch(rect)
+                            # Then highlight phase 2 cells
+                            if cell == '2':
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                       facecolor=color_phase2_alt, edgecolor=color_grid, alpha=0.98,
+                                                       hatch='///')
+                                self.ax.add_patch(rect)
+                            elif cell == 'X':
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                       facecolor=color_both_alt, edgecolor=color_x_highlight, alpha=0.98,
+                                                       hatch='///')
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
-                        # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black')
+                                               facecolor=color_phase1, edgecolor=color_grid, alpha=0.98)
                         self.ax.add_patch(rect)
-                        
                         # Then show cells that should be erased with a distinctive pattern
-                        if cell in ['2', 'X']:
+                        if cell == '2':
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='white', edgecolor='black', 
-                                                 hatch='///', alpha=0.7)
+                                                   facecolor=color_phase2, edgecolor=color_erase, alpha=0.98,
+                                                   hatch='///')
                             self.ax.add_patch(rect)
+                        elif cell == 'X':
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor=color_both, edgecolor=color_x_highlight, alpha=0.98,
+                                                   hatch='///')
+                            self.ax.add_patch(rect)
+
 
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (rainbow) --
             clue_text = ' '.join(map(str, clues))
+            clue_color = random.choice(['#1976d2', '#00bcd4', '#d500f9', '#ff9100', '#00e676', '#ff1744', '#2979ff'])
             self.ax.text(-0.5, self.height-i-0.5, clue_text,
-                         ha='right', va='center', fontsize=10)
-            
-            # -- Phase 2 clues (red) --
+                         ha='right', va='center', fontsize=10, color=clue_color, fontweight='bold')
+            # -- Phase 2 clues (rainbow) --
             erasing_clues = self.erasing_row_clues[i]
             if erasing_clues != [0]:
                 erasing_text = ' '.join(map(str, erasing_clues))
+                erase_color = random.choice(['#e65100', '#ffd600', '#ff80ab', '#ff1744', '#00e676', '#ff9100', '#d500f9'])
                 self.ax.text(-0.5, self.height-i-0.8, erasing_text,
-                             ha='right', va='center', fontsize=10, color='red')
+                             ha='right', va='center', fontsize=10, color=erase_color, fontweight='bold')
 
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (rainbow) --
             clue_text = '\n'.join(map(str, clues))
+            clue_color = random.choice(['#1976d2', '#00bcd4', '#d500f9', '#ff9100', '#00e676', '#ff1744', '#2979ff'])
             self.ax.text(j+0.5, self.height+0.1, clue_text,
-                         ha='center', va='bottom', fontsize=10)
-            
-            # -- Phase 2 clues (red) --
+                         ha='center', va='bottom', fontsize=10, color=clue_color, fontweight='bold')
+            # -- Phase 2 clues (rainbow) --
             erasing_clues = self.erasing_col_clues[j]
             if erasing_clues != [0]:
                 erasing_text = '\n'.join(map(str, erasing_clues))
+                erase_color = random.choice(['#e65100', '#ffd600', '#ff80ab', '#ff1744', '#00e676', '#ff9100', '#d500f9'])
                 self.ax.text(j+0.8, self.height+0.1, erasing_text,
-                             ha='center', va='bottom', fontsize=10, color='red')
+                             ha='center', va='bottom', fontsize=10, color=erase_color, fontweight='bold')
 
         # Set the view limits
         self.ax.set_xlim(-row_offset, self.width)
