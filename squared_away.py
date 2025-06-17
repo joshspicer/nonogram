@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
 import numpy as np
+import threading
+import time
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
@@ -97,6 +99,22 @@ class NonoGramVisualizer:
         self.editor_phase = 1  # Start with Phase 1 in editor mode
         self.click_enabled = True  # Flag to control click processing
         
+        # Funny color mode settings
+        self.funny_color_mode = False
+        self.color_scheme_index = 0
+        self.async_color_mode = False
+        self.async_thread = None
+        self.async_stop_event = threading.Event()
+        
+        # Define vibrant color schemes for funny mode
+        self.color_schemes = [
+            {'phase1': '#FF6B6B', 'phase2': '#4ECDC4', 'edge': '#2C3E50'},  # Red/Teal
+            {'phase1': '#FFD93D', 'phase2': '#6BCF7F', 'edge': '#4A4A4A'},  # Yellow/Green  
+            {'phase1': '#A8E6CF', 'phase2': '#FF8B94', 'edge': '#2E2E2E'},  # Mint/Pink
+            {'phase1': '#B4A7F7', 'phase2': '#FFB347', 'edge': '#333333'},  # Purple/Orange
+            {'phase1': '#87CEEB', 'phase2': '#F0E68C', 'edge': '#2F4F4F'},  # Sky/Khaki
+        ]
+        
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
         self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(grid)
@@ -113,6 +131,74 @@ class NonoGramVisualizer:
         
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
+        
+    def toggle_funny_color_mode(self):
+        """Toggle between normal and funny color mode"""
+        self.funny_color_mode = not self.funny_color_mode
+        print(f"Funny color mode: {'ON' if self.funny_color_mode else 'OFF'}")
+        if not self.funny_color_mode:
+            self.stop_async_colors()
+        if self.ax is not None:  # Only draw if figure is set up
+            self.draw_puzzle()
+        
+    def cycle_color_scheme(self):
+        """Cycle to the next color scheme in funny mode"""
+        if self.funny_color_mode:
+            self.color_scheme_index = (self.color_scheme_index + 1) % len(self.color_schemes)
+            print(f"Color scheme: {self.color_scheme_index + 1}/{len(self.color_schemes)}")
+            if self.ax is not None:  # Only draw if figure is set up
+                self.draw_puzzle()
+            
+    def toggle_async_colors(self):
+        """Toggle async color cycling on/off"""
+        if not self.funny_color_mode:
+            print("Enable funny color mode first!")
+            return
+            
+        self.async_color_mode = not self.async_color_mode
+        if self.async_color_mode:
+            print("Async color cycling: ON")
+            self.start_async_colors()
+        else:
+            print("Async color cycling: OFF")
+            self.stop_async_colors()
+            
+    def start_async_colors(self):
+        """Start async color cycling in a background thread"""
+        if self.async_thread and self.async_thread.is_alive():
+            return
+            
+        self.async_stop_event.clear()
+        self.async_thread = threading.Thread(target=self._async_color_worker)
+        self.async_thread.daemon = True
+        self.async_thread.start()
+        
+    def stop_async_colors(self):
+        """Stop async color cycling"""
+        self.async_color_mode = False
+        if self.async_thread:
+            self.async_stop_event.set()
+            
+    def _async_color_worker(self):
+        """Background worker for async color cycling"""
+        while not self.async_stop_event.is_set():
+            if self.funny_color_mode and self.async_color_mode and self.ax is not None:
+                # Cycle to next color scheme
+                self.color_scheme_index = (self.color_scheme_index + 1) % len(self.color_schemes)
+                # Use matplotlib's thread-safe drawing
+                if self.fig and hasattr(self.fig.canvas, 'draw_idle'):
+                    self.draw_puzzle()
+                    self.fig.canvas.draw_idle()
+            # Wait 2 seconds before next color change
+            if self.async_stop_event.wait(2.0):
+                break
+            
+    def get_current_colors(self):
+        """Get current color scheme based on mode"""
+        if self.funny_color_mode:
+            return self.color_schemes[self.color_scheme_index]
+        else:
+            return {'phase1': 'gray', 'phase2': 'white', 'edge': 'black'}
         
     def setup_figure(self):
         # Create the figure with enough space for clues
@@ -209,13 +295,20 @@ class NonoGramVisualizer:
         self.ax.clear()
 
         # Set title based on editor phase or viewing phase
+        title_prefix = ""
+        if self.funny_color_mode:
+            title_prefix = "🎨 FUNNY COLOR MODE 🎨 - "
+            
         if self.editor_mode:
             if self.editor_phase == 1:
-                self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
+                self.fig.suptitle(f"{title_prefix}Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
             else:
-                self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                self.fig.suptitle(f"{title_prefix}Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
         else:
-            self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
+            self.fig.suptitle(f"{title_prefix}{self.phases[self.current_phase]}", fontsize=16)
+
+        # Get current color scheme
+        colors = self.get_current_colors()
 
         # Calculate grid offsets for clues
         row_offset = max(2.5, self.max_row_clues * 0.7)
@@ -223,9 +316,9 @@ class NonoGramVisualizer:
 
         # Draw the grid
         for i in range(self.height + 1):
-            self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
+            self.ax.axhline(y=i, color=colors['edge'], linestyle='-', linewidth=1)
         for j in range(self.width + 1):
-            self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
+            self.ax.axvline(x=j, color=colors['edge'], linestyle='-', linewidth=1)
 
         # Fill cells based on phase or editor mode
         for i in range(self.height):
@@ -239,8 +332,9 @@ class NonoGramVisualizer:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black',
-                                               hatch='xxx', alpha=0.7)
+                                               facecolor=colors['phase1'], edgecolor=colors['edge'],
+                                               hatch='xxx' if not self.funny_color_mode else None, 
+                                               alpha=0.8)
                         self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
@@ -250,35 +344,38 @@ class NonoGramVisualizer:
                             # Phase 1 editing: show only phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black',
-                                                     hatch='xxx', alpha=0.7)
+                                                     facecolor=colors['phase1'], edgecolor=colors['edge'],
+                                                     hatch='xxx' if not self.funny_color_mode else None, 
+                                                     alpha=0.8)
                                 self.ax.add_patch(rect)
                         else:
                             # Phase 2 editing: show all cells
                             # First show phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black')
+                                                     facecolor=colors['phase1'], edgecolor=colors['edge'])
                                 self.ax.add_patch(rect)
                             
                             # Then highlight phase 2 cells
                             if cell in ['2', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='white', edgecolor='black',
-                                                     hatch='///', alpha=0.7)
+                                                     facecolor=colors['phase2'], edgecolor=colors['edge'],
+                                                     hatch='///' if not self.funny_color_mode else None, 
+                                                     alpha=0.8)
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
                         # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black')
+                                               facecolor=colors['phase1'], edgecolor=colors['edge'])
                         self.ax.add_patch(rect)
                         
                         # Then show cells that should be erased with a distinctive pattern
                         if cell in ['2', 'X']:
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='white', edgecolor='black', 
-                                                 hatch='///', alpha=0.7)
+                                                 facecolor=colors['phase2'], edgecolor=colors['edge'], 
+                                                 hatch='///' if not self.funny_color_mode else None, 
+                                                 alpha=0.8)
                             self.ax.add_patch(rect)
 
         # -- Row Clues --
@@ -323,14 +420,22 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        instruction = "ENTER: cycle modes | C: color mode | F: next colors | A: async colors"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=12, fontweight="bold", color="blue",
+                    fontsize=11, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
             
         plt.tight_layout()
         plt.subplots_adjust(top=0.9, bottom=0.1)
+        
+        # Ensure cleanup on window close
+        self.fig.canvas.mpl_connect('close_event', self._on_close)
+        
         plt.show()
+        
+    def _on_close(self, event):
+        """Clean up when window is closed"""
+        self.stop_async_colors()
 
     def handle_key_press(self, event):
         """Handle keyboard input for navigation and saving"""
@@ -367,6 +472,15 @@ class NonoGramVisualizer:
                 # In viewing mode, use Enter to advance phase
                 self.current_phase = (self.current_phase + 1) % 3
                 self.draw_puzzle()
+        elif event.key == 'c' or event.key == 'C':
+            # Toggle funny color mode
+            self.toggle_funny_color_mode()
+        elif event.key == 'f' or event.key == 'F':
+            # Cycle color scheme in funny mode
+            self.cycle_color_scheme()
+        elif event.key == 'a' or event.key == 'A':
+            # Toggle async color cycling
+            self.toggle_async_colors()
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
