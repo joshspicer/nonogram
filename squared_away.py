@@ -323,7 +323,16 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        if self.editor_mode:
+            # Add save button for editor mode
+            button_ax = plt.axes([0.8, 0.01, 0.15, 0.05])
+            self.save_button = Button(button_ax, "Save/Next")
+            self.save_button.on_clicked(self.save_grid)
+            
+            instruction = "Click cells to toggle, click Save/Next to proceed"
+        else:
+            instruction = "Press ENTER to cycle modes"
+            
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
