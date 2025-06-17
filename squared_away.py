@@ -235,7 +235,7 @@ class NonoGramVisualizer:
                 if self.current_phase == 0 and not self.editor_mode:  
                     # Empty grid in initial phase
                     pass
-                elif self.current_phase == 1 and not self.editor_mode:  
+                elif self.current_phase == 1 and not self.editor_mode:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
