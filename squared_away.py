@@ -14,7 +14,10 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
+import matplotlib.animation as animation
 import numpy as np
+import random
+import time
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
@@ -108,8 +111,14 @@ class NonoGramVisualizer:
         # Set up the visualization
         self.fig = None
         self.ax = None
-        self.current_phase = 0  # 0: empty, 1: after shading, 2: after erasing
-        self.phases = ["Initial Grid", "Phase 01: Apply foundation protocol", "Phase 02: Execute refinement protocol"]
+        self.current_phase = 0  # 0: empty, 1: after shading, 2: after erasing, 3: funny color mode
+        self.phases = ["Initial Grid", "Phase 01: Apply foundation protocol", "Phase 02: Execute refinement protocol", "Funny Color Mode"]
+        
+        # Animation variables for funny color mode
+        self.animation_obj = None
+        self.animation_colors = []
+        self.animation_counter = 0
+        self.animation_speed = 200  # Default animation interval in milliseconds
         
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
@@ -202,9 +211,118 @@ class NonoGramVisualizer:
             plt.close(self.fig)
             
     def next_phase(self, event=None):
-        self.current_phase = (self.current_phase + 1) % 3
+        # Stop any current animation before switching
+        self.stop_funny_color_animation()
+        
+        self.current_phase = (self.current_phase + 1) % 4
+        
+        if self.current_phase == 3:  # Funny color mode
+            self.start_funny_color_animation()
+        else:
+            self.draw_puzzle()
+        
+    def start_funny_color_animation(self):
+        """Start the funny color animation mode"""
+        if self.animation_obj is not None:
+            self.stop_funny_color_animation()
+        
+        # Initialize animation colors for each cell
+        self.animation_colors = []
+        for i in range(self.height):
+            row_colors = []
+            for j in range(self.width):
+                row_colors.append(random.choice(['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'cyan', 'magenta']))
+            self.animation_colors.append(row_colors)
+        
+        self.animation_counter = 0
+        
+        # Create the animation
+        self.animation_obj = animation.FuncAnimation(
+            self.fig, self.animate_funny_colors, 
+            interval=self.animation_speed, blit=False, repeat=True, cache_frame_data=False
+        )
+        
+        # Initial draw
         self.draw_puzzle()
         
+    def stop_funny_color_animation(self):
+        """Stop and clean up the funny color animation"""
+        if self.animation_obj is not None:
+            self.animation_obj.event_source.stop()
+            self.animation_obj = None
+            
+    def animate_funny_colors(self, frame):
+        """Animation function for funny color mode"""
+        self.animation_counter += 1
+        
+        # Update colors with rainbow cycling effect
+        for i in range(self.height):
+            for j in range(self.width):
+                hue = (self.animation_counter * 10 + i * 30 + j * 50) % 360
+                saturation = 0.8 + 0.2 * np.sin(self.animation_counter * 0.1 + i + j)
+                value = 0.8 + 0.2 * np.cos(self.animation_counter * 0.15 + i * 2 + j)
+                
+                # Convert HSV to RGB
+                import colorsys
+                rgb = colorsys.hsv_to_rgb(hue/360.0, saturation, value)
+                self.animation_colors[i][j] = rgb
+        
+        # Redraw the puzzle with new colors
+        self.draw_puzzle()
+        return []
+    
+    def draw_clues_and_grid(self):
+        """Helper method to draw clues and grid lines (shared between normal and animation modes)"""
+        # Calculate grid offsets for clues
+        row_offset = max(2.5, self.max_row_clues * 0.7)
+        col_offset = max(2.5, self.max_col_clues * 0.6)
+
+        # Draw the grid
+        for i in range(self.height + 1):
+            self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
+        for j in range(self.width + 1):
+            self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
+
+        # -- Row Clues --
+        for i, clues in enumerate(self.shading_row_clues):
+            # -- Phase 1 clues (black) --
+            clue_text = ' '.join(map(str, clues))
+            color = 'white' if self.current_phase == 3 else 'black'  # White text for funny mode
+            self.ax.text(-0.5, self.height-i-0.5, clue_text,
+                         ha='right', va='center', fontsize=10, color=color, weight='bold')
+            
+            # -- Phase 2 clues (red) --
+            erasing_clues = self.erasing_row_clues[i]
+            if erasing_clues != [0]:
+                erasing_text = ' '.join(map(str, erasing_clues))
+                clue_color = 'yellow' if self.current_phase == 3 else 'red'  # Yellow for funny mode
+                self.ax.text(-0.5, self.height-i-0.8, erasing_text,
+                             ha='right', va='center', fontsize=10, color=clue_color, weight='bold')
+
+        # -- Column Clues --
+        for j, clues in enumerate(self.shading_col_clues):
+            # -- Phase 1 clues (black) --
+            clue_text = '\n'.join(map(str, clues))
+            color = 'white' if self.current_phase == 3 else 'black'  # White text for funny mode
+            self.ax.text(j+0.5, self.height+0.1, clue_text,
+                         ha='center', va='bottom', fontsize=10, color=color, weight='bold')
+            
+            # -- Phase 2 clues (red) --
+            erasing_clues = self.erasing_col_clues[j]
+            if erasing_clues != [0]:
+                erasing_text = '\n'.join(map(str, erasing_clues))
+                clue_color = 'yellow' if self.current_phase == 3 else 'red'  # Yellow for funny mode
+                self.ax.text(j+0.8, self.height+0.1, erasing_text,
+                             ha='center', va='bottom', fontsize=10, color=clue_color, weight='bold')
+
+        # Set the view limits
+        self.ax.set_xlim(-row_offset, self.width)
+        self.ax.set_ylim(-1, self.height + col_offset)
+
+        # Hide axis ticks
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+
     def draw_puzzle(self):
         self.ax.clear()
 
@@ -217,15 +335,13 @@ class NonoGramVisualizer:
         else:
             self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
 
-        # Calculate grid offsets for clues
-        row_offset = max(2.5, self.max_row_clues * 0.7)
-        col_offset = max(2.5, self.max_col_clues * 0.6)
-
-        # Draw the grid
-        for i in range(self.height + 1):
-            self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
-        for j in range(self.width + 1):
-            self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
+        # Set background color for funny mode
+        if self.current_phase == 3:
+            self.fig.patch.set_facecolor('black')
+            self.ax.set_facecolor('black')
+        else:
+            self.fig.patch.set_facecolor('white')
+            self.ax.set_facecolor('white')
 
         # Fill cells based on phase or editor mode
         for i in range(self.height):
@@ -242,6 +358,32 @@ class NonoGramVisualizer:
                                                facecolor='gray', edgecolor='black',
                                                hatch='xxx', alpha=0.7)
                         self.ax.add_patch(rect)
+                elif self.current_phase == 3 and not self.editor_mode:
+                    # Funny color mode - all cells get animated colors
+                    if hasattr(self, 'animation_colors') and len(self.animation_colors) > i:
+                        color = self.animation_colors[i][j]
+                        # Add some visual effects
+                        alpha = 0.8 + 0.2 * np.sin(self.animation_counter * 0.1 + i + j)
+                        
+                        # Create pulsing effect for different cell types
+                        if cell in ['1', 'X']:
+                            # Solid filled cells get brighter colors
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor=color, edgecolor='white',
+                                                   alpha=alpha, linewidth=2)
+                            self.ax.add_patch(rect)
+                        elif cell in ['2']:
+                            # Erased cells get different patterns
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor=color, edgecolor='white',
+                                                   alpha=alpha*0.6, hatch='///', linewidth=1)
+                            self.ax.add_patch(rect)
+                        else:
+                            # Empty cells get subtle coloring
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor=color, edgecolor='gray',
+                                                   alpha=alpha*0.3, linewidth=0.5)
+                            self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
                     if self.editor_mode:
@@ -281,41 +423,8 @@ class NonoGramVisualizer:
                                                  hatch='///', alpha=0.7)
                             self.ax.add_patch(rect)
 
-        # -- Row Clues --
-        for i, clues in enumerate(self.shading_row_clues):
-            # -- Phase 1 clues (black) --
-            clue_text = ' '.join(map(str, clues))
-            self.ax.text(-0.5, self.height-i-0.5, clue_text,
-                         ha='right', va='center', fontsize=10)
-            
-            # -- Phase 2 clues (red) --
-            erasing_clues = self.erasing_row_clues[i]
-            if erasing_clues != [0]:
-                erasing_text = ' '.join(map(str, erasing_clues))
-                self.ax.text(-0.5, self.height-i-0.8, erasing_text,
-                             ha='right', va='center', fontsize=10, color='red')
-
-        # -- Column Clues --
-        for j, clues in enumerate(self.shading_col_clues):
-            # -- Phase 1 clues (black) --
-            clue_text = '\n'.join(map(str, clues))
-            self.ax.text(j+0.5, self.height+0.1, clue_text,
-                         ha='center', va='bottom', fontsize=10)
-            
-            # -- Phase 2 clues (red) --
-            erasing_clues = self.erasing_col_clues[j]
-            if erasing_clues != [0]:
-                erasing_text = '\n'.join(map(str, erasing_clues))
-                self.ax.text(j+0.8, self.height+0.1, erasing_text,
-                             ha='center', va='bottom', fontsize=10, color='red')
-
-        # Set the view limits
-        self.ax.set_xlim(-row_offset, self.width)
-        self.ax.set_ylim(-1, self.height + col_offset)
-
-        # Hide axis ticks
-        self.ax.set_xticks([])
-        self.ax.set_yticks([])
+        # Draw clues and grid using helper method
+        self.draw_clues_and_grid()
 
         plt.draw()
 
@@ -323,9 +432,9 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        instruction = "Press ENTER to cycle modes | In Funny Color Mode: UP/DOWN to control speed"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=12, fontweight="bold", color="blue",
+                    fontsize=11, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
             
         plt.tight_layout()
@@ -365,8 +474,34 @@ class NonoGramVisualizer:
                     plt.close(self.fig)
             else:
                 # In viewing mode, use Enter to advance phase
-                self.current_phase = (self.current_phase + 1) % 3
-                self.draw_puzzle()
+                # Stop any current animation before switching
+                self.stop_funny_color_animation()
+                
+                self.current_phase = (self.current_phase + 1) % 4
+                
+                if self.current_phase == 3:  # Funny color mode
+                    self.start_funny_color_animation()
+                else:
+                    self.draw_puzzle()
+        
+        # Speed controls for funny color mode
+        elif event.key == 'up' and self.current_phase == 3 and not self.editor_mode:
+            # Speed up animation
+            self.animation_speed = max(50, self.animation_speed - 50)
+            print(f"Animation speed increased (interval: {self.animation_speed}ms)")
+            self.restart_animation()
+        
+        elif event.key == 'down' and self.current_phase == 3 and not self.editor_mode:
+            # Slow down animation
+            self.animation_speed = min(1000, self.animation_speed + 50)
+            print(f"Animation speed decreased (interval: {self.animation_speed}ms)")
+            self.restart_animation()
+    
+    def restart_animation(self):
+        """Restart animation with new speed"""
+        if self.current_phase == 3 and self.animation_obj is not None:
+            self.stop_funny_color_animation()
+            self.start_funny_color_animation()
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
