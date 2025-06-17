@@ -390,12 +390,21 @@ def main():
         # Editor mode with presets
         presets = [
             (5, 5),
+            (8, 8),
             (10, 10),
+            (12, 12),
             (15, 15),
-            (20, 15),
             (20, 20),
+            (25, 25),
+            (8, 12),
+            (12, 8),
+            (15, 10),
+            (20, 15),
+            (25, 15),
             (25, 20),
             (30, 20),
+            (30, 25),
+            (40, 30),
         ]
         print("\nSelect a puzzle size preset or enter custom dimensions:")
         for idx, (w, h) in enumerate(presets, 1):
