@@ -389,11 +389,19 @@ def main():
     else:
         # Editor mode with presets
         presets = [
-            (5, 5),
-            (10, 10),
-            (15, 15),
-            (20, 15),
-            (15, 20),
+            (5, 5),     # Small square
+            (10, 10),   # Medium square  
+            (15, 15),   # Large square
+            (20, 15),   # Wide rectangle
+            (15, 20),   # Tall rectangle
+            (8, 8),     # Small-medium square
+            (12, 12),   # Medium-large square 
+            (20, 20),   # Large square
+            (25, 25),   # Extra large square
+            (12, 8),    # Medium tall rectangle
+            (8, 12),    # Medium wide rectangle
+            (25, 15),   # Large wide rectangle
+            (15, 25),   # Large tall rectangle
         ]
         print("Select a preset or enter custom dimensions:")
         for idx, (w, h) in enumerate(presets, 1):
