@@ -15,6 +15,21 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
 import numpy as np
+import random
+
+# Fun color palettes for extra excitement!
+FUN_COLOR_PALETTES = [
+    ['neongreen', 'hotpink', 'cyan', 'orange', 'gold', 'magenta'],
+    ['lime', 'fuchsia', 'aqua', 'yellow', 'red', 'springgreen'],
+    ['coral', 'turquoise', 'violet', 'chartreuse', 'deeppink', 'lightskyblue'],
+    ['tomato', 'mediumspringgreen', 'dodgerblue', 'gold', 'mediumorchid', 'lime'],
+    ['orangered', 'limegreen', 'hotpink', 'cyan', 'yellow', 'mediumvioletred']
+]
+
+def get_fun_color():
+    """Get a random fun color from our palettes."""
+    palette = random.choice(FUN_COLOR_PALETTES)
+    return random.choice(palette)
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
@@ -221,11 +236,14 @@ class NonoGramVisualizer:
         row_offset = max(2.5, self.max_row_clues * 0.7)
         col_offset = max(2.5, self.max_col_clues * 0.6)
 
-        # Draw the grid
+        # Draw the grid with colorful lines!
+        grid_colors = ['darkviolet', 'darkblue', 'darkgreen', 'darkorange', 'darkred', 'darkslateblue']
         for i in range(self.height + 1):
-            self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
+            line_color = grid_colors[i % len(grid_colors)]
+            self.ax.axhline(y=i, color=line_color, linestyle='-', linewidth=1.5)
         for j in range(self.width + 1):
-            self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
+            line_color = grid_colors[j % len(grid_colors)]
+            self.ax.axvline(x=j, color=line_color, linestyle='-', linewidth=1.5)
 
         # Fill cells based on phase or editor mode
         for i in range(self.height):
@@ -236,49 +254,84 @@ class NonoGramVisualizer:
                     # Empty grid in initial phase
                     pass
                 elif self.current_phase == 1 and not self.editor_mode:  
-                    # Phase 1: Apply foundation protocol
+                    # Phase 1: Apply foundation protocol - extra fun with random colors!
                     if cell in ['1', 'X']:
+                        # Add some variety with position-based colors
+                        base_colors = ['hotpink', 'lime', 'cyan', 'gold', 'magenta', 'orange']
+                        edge_colors = ['gold', 'hotpink', 'lime', 'cyan', 'magenta', 'orange']
+                        
+                        face_color = base_colors[(i + j) % len(base_colors)]
+                        edge_color = edge_colors[(i * 2 + j) % len(edge_colors)]
+                        
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='hotpink', edgecolor='gold',
-                                               hatch='xxx', alpha=0.8)
+                                               facecolor=face_color, edgecolor=edge_color,
+                                               hatch='xxx', alpha=0.85, linewidth=2)
                         self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
                     if self.editor_mode:
                         # Show different visualizations based on editor phase
                         if self.editor_phase == 1:
-                            # Phase 1 editing: show only phase 1 cells
+                            # Phase 1 editing: show only phase 1 cells with sparkly colors!
                             if cell in ['1', 'X']:
+                                sparkle_colors = ['coral', 'gold', 'lime', 'cyan', 'hotpink', 'yellow']
+                                sparkle_edges = ['turquoise', 'coral', 'gold', 'lime', 'cyan', 'hotpink']
+                                
+                                face_color = sparkle_colors[(i + j) % len(sparkle_colors)]
+                                edge_color = sparkle_edges[(j + i * 2) % len(sparkle_edges)]
+                                
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='coral', edgecolor='turquoise',
-                                                     hatch='xxx', alpha=0.8)
+                                                     facecolor=face_color, edgecolor=edge_color,
+                                                     hatch='xxx', alpha=0.85, linewidth=2.5)
                                 self.ax.add_patch(rect)
                         else:
-                            # Phase 2 editing: show all cells
+                            # Phase 2 editing: show all cells with rainbow effects
                             # First show phase 1 cells
                             if cell in ['1', 'X']:
+                                rainbow_phase1 = ['mediumorchid', 'springgreen', 'gold', 'hotpink', 'cyan', 'orange']
+                                rainbow_edges1 = ['limegreen', 'mediumorchid', 'springgreen', 'gold', 'hotpink', 'cyan']
+                                
+                                face_color = rainbow_phase1[(i * j + i + j) % len(rainbow_phase1)]
+                                edge_color = rainbow_edges1[(i + j * 2) % len(rainbow_edges1)]
+                                
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='mediumorchid', edgecolor='limegreen')
+                                                     facecolor=face_color, edgecolor=edge_color, linewidth=2)
                                 self.ax.add_patch(rect)
                             
-                            # Then highlight phase 2 cells
+                            # Then highlight phase 2 cells with extra pizzazz!
                             if cell in ['2', 'X']:
+                                pizzazz_colors = ['yellow', 'lime', 'cyan', 'magenta', 'orange', 'red']
+                                pizzazz_edges = ['magenta', 'yellow', 'lime', 'cyan', 'red', 'orange']
+                                
+                                face_color = pizzazz_colors[(i * 3 + j) % len(pizzazz_colors)]
+                                edge_color = pizzazz_edges[(j * 2 + i) % len(pizzazz_edges)]
+                                
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='yellow', edgecolor='magenta',
-                                                     hatch='///', alpha=0.8)
+                                                     facecolor=face_color, edgecolor=edge_color,
+                                                     hatch='///', alpha=0.9, linewidth=2.5)
                                 self.ax.add_patch(rect)
                     else:
-                        # Phase 2: Fill everything, then show erased cells
-                        # First fill everything
+                        # Phase 2: Fill everything, then show erased cells - rainbow background!
+                        # Create a colorful background pattern
+                        rainbow_colors = ['lightcoral', 'lightblue', 'lightgreen', 'lightyellow', 
+                                        'lightpink', 'lightcyan', 'lavender', 'lightsteelblue']
+                        bg_color = rainbow_colors[(i + j * 2) % len(rainbow_colors)]
+                        
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='plum', edgecolor='darkviolet')
+                                               facecolor=bg_color, edgecolor='darkviolet', linewidth=1.5)
                         self.ax.add_patch(rect)
                         
-                        # Then show cells that should be erased with a distinctive pattern
+                        # Then show cells that should be erased with extra dramatic colors
                         if cell in ['2', 'X']:
+                            dramatic_colors = ['orange', 'red', 'yellow', 'lime', 'cyan', 'magenta']
+                            dramatic_edges = ['crimson', 'darkred', 'darkorange', 'darkgreen', 'darkblue', 'darkmagenta']
+                            
+                            face_color = dramatic_colors[(i + j) % len(dramatic_colors)]
+                            edge_color = dramatic_edges[(i + j) % len(dramatic_edges)]
+                            
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='orange', edgecolor='crimson', 
-                                                 hatch='///', alpha=0.9)
+                                                 facecolor=face_color, edgecolor=edge_color, 
+                                                 hatch='///', alpha=0.95, linewidth=3)
                             self.ax.add_patch(rect)
 
         # -- Row Clues --
@@ -323,10 +376,11 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        instruction = "Press ENTER to cycle modes ✨🌈✨"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=12, fontweight="bold", color="mediumvioletred",
-                    bbox=dict(boxstyle="round", fc="lightyellow", ec="mediumvioletred", alpha=0.9))
+                    fontsize=14, fontweight="bold", color="darkmagenta",
+                    bbox=dict(boxstyle="round,pad=0.5", fc="lightcyan", ec="darkmagenta", 
+                             alpha=0.95, linewidth=2))
             
         plt.tight_layout()
         plt.subplots_adjust(top=0.9, bottom=0.1)
