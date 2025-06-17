@@ -378,6 +378,48 @@ def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
     return [['-' for _ in range(width)] for _ in range(height)]
 
+def get_grid_dimensions():
+    """Get grid dimensions from user, offering preset sizes or custom input."""
+    print("\nSelect grid size:")
+    print("1. 5x5 (Beginner)")
+    print("2. 10x10 (Easy)")
+    print("3. 15x15 (Medium)")
+    print("4. 20x20 (Hard)")
+    print("5. 25x25 (Expert)")
+    print("6. Custom dimensions")
+    
+    preset_sizes = {
+        '1': (5, 5),
+        '2': (10, 10),
+        '3': (15, 15),
+        '4': (20, 20),
+        '5': (25, 25)
+    }
+    
+    while True:
+        try:
+            choice = input("\nEnter your choice (1-6): ").strip()
+            
+            if choice in preset_sizes:
+                width, height = preset_sizes[choice]
+                print(f"Selected {width}x{height} grid")
+                return width, height
+            elif choice == '6':
+                # Custom dimensions
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    continue
+                return width, height
+            else:
+                print("Please enter a valid choice (1-6)")
+        except ValueError:
+            print("Please enter a valid choice (1-6)")
+        except (EOFError, KeyboardInterrupt):
+            print("\nExiting...")
+            return None, None
+
 def main():
     print("Squared Away Nonogram Generator")
 
@@ -388,19 +430,11 @@ def main():
         process_nonogram(grid_str)
     else:
         # Editor mode
-        try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
-                return
-                
+        width, height = get_grid_dimensions()
+        if width is not None and height is not None:
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
-            
-        except ValueError:
-            print("Please enter valid integers for dimensions")
 
 if __name__ == "__main__":
     main()
