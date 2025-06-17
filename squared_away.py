@@ -383,13 +383,26 @@ def main():
 
     # Preset options for common puzzle sizes
     PRESETS = [
+        (3, 3),
+        (4, 4),
         (5, 5),
+        (6, 6),
+        (8, 8),
+        (10, 8),
         (10, 10),
+        (12, 8),
+        (12, 12),
+        (15, 10),
         (15, 15),
+        (18, 18),
         (20, 15),
         (20, 20),
+        (25, 15),
         (25, 20),
+        (25, 25),
         (30, 20),
+        (30, 30),
+        (40, 30),
     ]
 
     # Check if input is from a file/pipe or keyboard
