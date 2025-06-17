@@ -239,8 +239,8 @@ class NonoGramVisualizer:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='blue', edgecolor='green',
-                                               hatch='xxx', alpha=0.7)
+                                               facecolor='hotpink', edgecolor='gold',
+                                               hatch='xxx', alpha=0.8)
                         self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
@@ -250,64 +250,64 @@ class NonoGramVisualizer:
                             # Phase 1 editing: show only phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black',
-                                                     hatch='xxx', alpha=0.7)
+                                                     facecolor='coral', edgecolor='turquoise',
+                                                     hatch='xxx', alpha=0.8)
                                 self.ax.add_patch(rect)
                         else:
                             # Phase 2 editing: show all cells
                             # First show phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black')
+                                                     facecolor='mediumorchid', edgecolor='limegreen')
                                 self.ax.add_patch(rect)
                             
                             # Then highlight phase 2 cells
                             if cell in ['2', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='white', edgecolor='black',
-                                                     hatch='///', alpha=0.7)
+                                                     facecolor='yellow', edgecolor='magenta',
+                                                     hatch='///', alpha=0.8)
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
                         # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black')
+                                               facecolor='plum', edgecolor='darkviolet')
                         self.ax.add_patch(rect)
                         
                         # Then show cells that should be erased with a distinctive pattern
                         if cell in ['2', 'X']:
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='white', edgecolor='black', 
-                                                 hatch='///', alpha=0.7)
+                                                 facecolor='orange', edgecolor='crimson', 
+                                                 hatch='///', alpha=0.9)
                             self.ax.add_patch(rect)
 
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (bright blue) --
             clue_text = ' '.join(map(str, clues))
             self.ax.text(-0.5, self.height-i-0.5, clue_text,
-                         ha='right', va='center', fontsize=10)
+                         ha='right', va='center', fontsize=10, color='royalblue', fontweight='bold')
             
-            # -- Phase 2 clues (red) --
+            # -- Phase 2 clues (neon pink) --
             erasing_clues = self.erasing_row_clues[i]
             if erasing_clues != [0]:
                 erasing_text = ' '.join(map(str, erasing_clues))
                 self.ax.text(-0.5, self.height-i-0.8, erasing_text,
-                             ha='right', va='center', fontsize=10, color='red')
+                             ha='right', va='center', fontsize=10, color='deeppink', fontweight='bold')
 
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (bright purple) --
             clue_text = '\n'.join(map(str, clues))
             self.ax.text(j+0.5, self.height+0.1, clue_text,
-                         ha='center', va='bottom', fontsize=10)
+                         ha='center', va='bottom', fontsize=10, color='darkslateblue', fontweight='bold')
             
-            # -- Phase 2 clues (red) --
+            # -- Phase 2 clues (bright orange) --
             erasing_clues = self.erasing_col_clues[j]
             if erasing_clues != [0]:
                 erasing_text = '\n'.join(map(str, erasing_clues))
                 self.ax.text(j+0.8, self.height+0.1, erasing_text,
-                             ha='center', va='bottom', fontsize=10, color='red')
+                             ha='center', va='bottom', fontsize=10, color='darkorange', fontweight='bold')
 
         # Set the view limits
         self.ax.set_xlim(-row_offset, self.width)
@@ -325,8 +325,8 @@ class NonoGramVisualizer:
 
         instruction = "Press ENTER to cycle modes"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=12, fontweight="bold", color="blue",
-                    bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
+                    fontsize=12, fontweight="bold", color="mediumvioletred",
+                    bbox=dict(boxstyle="round", fc="lightyellow", ec="mediumvioletred", alpha=0.9))
             
         plt.tight_layout()
         plt.subplots_adjust(top=0.9, bottom=0.1)
