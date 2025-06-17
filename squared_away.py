@@ -119,6 +119,7 @@ class NonoGramVisualizer:
         self.animation_colors = []
         self.animation_counter = 0
         self.animation_speed = 200  # Default animation interval in milliseconds
+        self.color_palette_mode = 0  # 0: auto-cycling, 1: rainbow, 2: wave, 3: spiral, 4: pulse
         
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
@@ -255,12 +256,43 @@ class NonoGramVisualizer:
         """Animation function for funny color mode"""
         self.animation_counter += 1
         
-        # Update colors with rainbow cycling effect
+        # Determine current color pattern
+        patterns = ['rainbow', 'wave', 'spiral', 'pulse']
+        if self.color_palette_mode == 0:
+            # Auto-cycling mode
+            current_pattern = patterns[self.animation_counter // 20 % len(patterns)]
+        else:
+            # Fixed palette mode
+            current_pattern = patterns[self.color_palette_mode - 1]
+        
+        # Update colors with different patterns
         for i in range(self.height):
             for j in range(self.width):
-                hue = (self.animation_counter * 10 + i * 30 + j * 50) % 360
-                saturation = 0.8 + 0.2 * np.sin(self.animation_counter * 0.1 + i + j)
-                value = 0.8 + 0.2 * np.cos(self.animation_counter * 0.15 + i * 2 + j)
+                if current_pattern == 'rainbow':
+                    # Rainbow cycling effect
+                    hue = (self.animation_counter * 8 + i * 30 + j * 50) % 360
+                    saturation = 0.9
+                    value = 0.9
+                elif current_pattern == 'wave':
+                    # Wave effect
+                    wave = np.sin(self.animation_counter * 0.2 + i * 0.5) * np.cos(self.animation_counter * 0.15 + j * 0.3)
+                    hue = (wave * 180 + 180) % 360
+                    saturation = 0.8 + 0.2 * np.sin(self.animation_counter * 0.1)
+                    value = 0.7 + 0.3 * np.abs(wave)
+                elif current_pattern == 'spiral':
+                    # Spiral effect
+                    distance = np.sqrt((i - self.height/2)**2 + (j - self.width/2)**2)
+                    angle = np.arctan2(i - self.height/2, j - self.width/2)
+                    hue = (self.animation_counter * 5 + distance * 20 + angle * 57.3) % 360
+                    saturation = 0.8 + 0.2 * np.sin(distance)
+                    value = 0.8 + 0.2 * np.cos(self.animation_counter * 0.1 + distance)
+                else:  # pulse
+                    # Pulsing effect
+                    center_dist = abs(i - self.height/2) + abs(j - self.width/2)
+                    pulse = np.sin(self.animation_counter * 0.3 - center_dist * 0.5)
+                    hue = (self.animation_counter * 10 + center_dist * 40) % 360
+                    saturation = 0.7 + 0.3 * pulse
+                    value = 0.6 + 0.4 * pulse
                 
                 # Convert HSV to RGB
                 import colorsys
@@ -362,27 +394,42 @@ class NonoGramVisualizer:
                     # Funny color mode - all cells get animated colors
                     if hasattr(self, 'animation_colors') and len(self.animation_colors) > i:
                         color = self.animation_colors[i][j]
-                        # Add some visual effects
-                        alpha = 0.8 + 0.2 * np.sin(self.animation_counter * 0.1 + i + j)
+                        # Add some visual effects based on animation counter
+                        base_alpha = 0.7 + 0.3 * np.sin(self.animation_counter * 0.1 + i + j)
                         
-                        # Create pulsing effect for different cell types
+                        # Create different effects for different cell types
                         if cell in ['1', 'X']:
-                            # Solid filled cells get brighter colors
+                            # Solid filled cells get brighter colors with glow effect
+                            alpha = base_alpha
+                            edge_color = 'white' if self.animation_counter % 20 < 10 else 'yellow'
+                            linewidth = 2 + np.sin(self.animation_counter * 0.2) * 0.5
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                   facecolor=color, edgecolor='white',
-                                                   alpha=alpha, linewidth=2)
+                                                   facecolor=color, edgecolor=edge_color,
+                                                   alpha=alpha, linewidth=linewidth)
                             self.ax.add_patch(rect)
                         elif cell in ['2']:
-                            # Erased cells get different patterns
+                            # Erased cells get different patterns and effects
+                            alpha = base_alpha * 0.6
+                            patterns = ['///', '\\\\\\', '+++', 'xxx']
+                            pattern = patterns[self.animation_counter // 10 % len(patterns)]
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                   facecolor=color, edgecolor='white',
-                                                   alpha=alpha*0.6, hatch='///', linewidth=1)
+                                                   facecolor=color, edgecolor='cyan',
+                                                   alpha=alpha, hatch=pattern, linewidth=1)
                             self.ax.add_patch(rect)
                         else:
-                            # Empty cells get subtle coloring
+                            # Empty cells get subtle coloring with sparkle effect
+                            alpha = base_alpha * 0.4
+                            # Add occasional "sparkle" effect
+                            if (self.animation_counter + i * 3 + j * 7) % 30 < 2:
+                                alpha *= 2
+                                edge_color = 'white'
+                                linewidth = 1.5
+                            else:
+                                edge_color = 'gray'
+                                linewidth = 0.5
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                   facecolor=color, edgecolor='gray',
-                                                   alpha=alpha*0.3, linewidth=0.5)
+                                                   facecolor=color, edgecolor=edge_color,
+                                                   alpha=alpha, linewidth=linewidth)
                             self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
@@ -432,9 +479,9 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes | In Funny Color Mode: UP/DOWN to control speed"
+        instruction = "ENTER: cycle modes | Funny Color Mode: ↑↓ speed, ←→ palette"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=11, fontweight="bold", color="blue",
+                    fontsize=10, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
             
         plt.tight_layout()
@@ -496,6 +543,19 @@ class NonoGramVisualizer:
             self.animation_speed = min(1000, self.animation_speed + 50)
             print(f"Animation speed decreased (interval: {self.animation_speed}ms)")
             self.restart_animation()
+        
+        # Palette controls for funny color mode
+        elif event.key == 'left' and self.current_phase == 3 and not self.editor_mode:
+            # Cycle through color palettes
+            self.color_palette_mode = (self.color_palette_mode + 1) % 5
+            palette_names = ['Auto-Cycling', 'Rainbow', 'Wave', 'Spiral', 'Pulse']
+            print(f"Color palette: {palette_names[self.color_palette_mode]}")
+        
+        elif event.key == 'right' and self.current_phase == 3 and not self.editor_mode:
+            # Cycle through color palettes (reverse)
+            self.color_palette_mode = (self.color_palette_mode - 1) % 5
+            palette_names = ['Auto-Cycling', 'Rainbow', 'Wave', 'Spiral', 'Pulse']
+            print(f"Color palette: {palette_names[self.color_palette_mode]}")
     
     def restart_animation(self):
         """Restart animation with new speed"""
