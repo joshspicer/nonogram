@@ -17,6 +17,11 @@ build/
 # matplotlib cache
 .matplotlib/
 
+# Go build artifacts
+nonogram
+nonogram.exe
+nonogram_test
+
 # Other common files to ignore
 .DS_Store
 .env
