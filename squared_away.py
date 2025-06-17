@@ -9,6 +9,34 @@ This program generates clues for a two-phase nonogram puzzle:
            (standard nonogram rules, but the entire grid is filled to start and the clues indicate erasing)
 
 The program also visualizes the puzzle with matplotlib and provides an editor mode.
+
+Z-AXIS SUPPORT:
+The application now supports 3D nonograms with multiple layers along the z-axis:
+- Each layer is an independent 2D nonogram grid
+- Use UP/DOWN arrow keys to navigate between layers
+- In editor mode, specify the number of layers when creating a new puzzle
+- Multi-layer puzzles are saved with "LAYER N" markers to separate each layer
+- Single-layer puzzles maintain backward compatibility with the original format
+
+FILE FORMAT:
+Single layer (original format):
+  ABC
+  DEF
+  GHI
+
+Multi-layer format:
+  LAYER 1
+  ABC
+  DEF
+  
+  LAYER 2
+  GHI
+  JKL
+
+CONTROLS:
+- ENTER: Cycle through visualization phases (empty → shaded → erased)
+- UP/DOWN arrows: Navigate between layers (if multiple layers exist)
+- Mouse clicks: Edit cells in editor mode
 """
 import sys
 import matplotlib.pyplot as plt
@@ -158,7 +186,8 @@ class NonoGramVisualizer:
             self.current_layer = (self.current_layer + 1) % self.layers
             self.grid = self.grid_3d[self.current_layer]
             self.update_clues()
-            self.draw_puzzle()
+            if self.ax is not None:  # Only draw if figure is set up
+                self.draw_puzzle()
     
     def prev_layer(self):
         """Navigate to the previous layer."""
@@ -166,7 +195,8 @@ class NonoGramVisualizer:
             self.current_layer = (self.current_layer - 1) % self.layers
             self.grid = self.grid_3d[self.current_layer]
             self.update_clues()
-            self.draw_puzzle()
+            if self.ax is not None:  # Only draw if figure is set up
+                self.draw_puzzle()
         
     def setup_figure(self):
         # Create the figure with enough space for clues
