@@ -9,12 +9,14 @@ This program generates clues for a two-phase nonogram puzzle:
            (standard nonogram rules, but the entire grid is filled to start and the clues indicate erasing)
 
 The program also visualizes the puzzle with matplotlib and provides an editor mode.
+Now includes an AI solver for automated puzzle solving.
 """
 import sys
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
 import numpy as np
+from nonogram_solver import NonogramSolver
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
@@ -89,13 +91,15 @@ def generate_erasing_clues(grid):
     return row_clues, col_clues
 
 class NonoGramVisualizer:
-    def __init__(self, grid, editor_mode=False):
+    def __init__(self, grid, editor_mode=False, solver_mode=False):
         self.grid = grid
         self.height = len(grid)
         self.width = len(grid[0])
         self.editor_mode = editor_mode
+        self.solver_mode = solver_mode
         self.editor_phase = 1  # Start with Phase 1 in editor mode
         self.click_enabled = True  # Flag to control click processing
+        self.solver = None  # Will be initialized when needed
         
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
@@ -113,6 +117,11 @@ class NonoGramVisualizer:
         
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
+        elif solver_mode:
+            # Start with empty grid for solver mode
+            self.current_phase = 0
+            self.original_grid = [row[:] for row in grid]  # Keep original for reference
+            self.grid = [['-' for _ in range(self.width)] for _ in range(self.height)]  # Start empty
         
     def setup_figure(self):
         # Create the figure with enough space for clues
@@ -121,6 +130,8 @@ class NonoGramVisualizer:
         # Set title based on current phase
         if self.editor_mode:
             self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
+        elif self.solver_mode:
+            self.fig.suptitle("Nonogram AI Solver", fontsize=16)
         else:
             self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
         
@@ -132,6 +143,53 @@ class NonoGramVisualizer:
             self.fig.canvas.mpl_connect('button_press_event', self.on_click)
             # Connect keyboard event for editor mode
             self.fig.canvas.mpl_connect('key_press_event', self.handle_key_press)
+        
+        if self.solver_mode:
+            # Connect keyboard event for solver mode (overrides above if needed)
+            self.fig.canvas.mpl_connect('key_press_event', self.handle_key_press)
+    
+    def solve_puzzle(self):
+        """Solve the current puzzle using AI."""
+        if not self.solver_mode:
+            print("Solver mode not enabled")
+            return
+        
+        print("Starting AI solver...")
+        
+        # Initialize solver
+        self.solver = NonogramSolver(self.width, self.height)
+        
+        # Get clues from original grid
+        phase1_row_clues, phase1_col_clues = generate_shading_clues(self.original_grid)
+        phase2_row_clues, phase2_col_clues = generate_erasing_clues(self.original_grid)
+        
+        print(f"Phase 1 row clues: {phase1_row_clues}")
+        print(f"Phase 1 col clues: {phase1_col_clues}")
+        print(f"Phase 2 row clues: {phase2_row_clues}")
+        print(f"Phase 2 col clues: {phase2_col_clues}")
+        
+        # Attempt to solve
+        success, solved_grid = self.solver.solve_two_phase_nonogram(
+            phase1_row_clues, phase1_col_clues,
+            phase2_row_clues, phase2_col_clues
+        )
+        
+        if success:
+            print("Puzzle solved successfully!")
+            print("Solved puzzle:")
+            for row in solved_grid:
+                print(''.join(row))
+            
+            self.grid = solved_grid
+            self.current_phase = 2  # Show final result
+            self.draw_puzzle()
+        else:
+            print("Could not solve puzzle completely. Showing partial solution.")
+            print("Partial solution:")
+            for row in solved_grid:
+                print(''.join(row))
+            self.grid = solved_grid
+            self.draw_puzzle()
         
     def on_click(self, event):
         """Handle mouse clicks in editor mode"""
@@ -323,7 +381,11 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        if self.solver_mode:
+            instruction = "Press ENTER or 'S' to solve puzzle"
+        else:
+            instruction = "Press ENTER to cycle modes"
+        
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
@@ -333,7 +395,7 @@ class NonoGramVisualizer:
         plt.show()
 
     def handle_key_press(self, event):
-        """Handle keyboard input for navigation and saving"""
+        """Handle keyboard input for navigation and solving"""
         if event.key == 'enter':
             if self.editor_mode:
                 # In editor mode, use Enter to advance phase or save
@@ -363,31 +425,118 @@ class NonoGramVisualizer:
                     
                     # Close the figure
                     plt.close(self.fig)
+            elif self.solver_mode:
+                # In solver mode, use Enter to start solving
+                self.solve_puzzle()
             else:
                 # In viewing mode, use Enter to advance phase
                 self.current_phase = (self.current_phase + 1) % 3
                 self.draw_puzzle()
+        elif event.key == 's' and self.solver_mode:
+            # Alternative key for solving
+            self.solve_puzzle()
 
-def process_nonogram(grid_str):
+def process_nonogram(grid_str, solver_mode=False):
     """Process the nonogram grid and visualize it."""
     grid = parse_grid(grid_str)
-    visualizer = NonoGramVisualizer(grid)
+    visualizer = NonoGramVisualizer(grid, solver_mode=solver_mode)
     visualizer.visualize()
+
+def solve_puzzle_headless(grid_str):
+    """Solve a puzzle without opening the GUI."""
+    print("Solving puzzle...")
+    
+    # Parse the grid
+    original_grid = parse_grid(grid_str)
+    height = len(original_grid)
+    width = len(original_grid[0])
+    
+    print("Original puzzle:")
+    for row in original_grid:
+        print(''.join(row))
+    
+    # Initialize solver
+    solver = NonogramSolver(width, height)
+    
+    # Get clues from original grid
+    phase1_row_clues, phase1_col_clues = generate_shading_clues(original_grid)
+    phase2_row_clues, phase2_col_clues = generate_erasing_clues(original_grid)
+    
+    print(f"\nPhase 1 row clues: {phase1_row_clues}")
+    print(f"Phase 1 col clues: {phase1_col_clues}")
+    print(f"Phase 2 row clues: {phase2_row_clues}")
+    print(f"Phase 2 col clues: {phase2_col_clues}")
+    
+    # Attempt to solve
+    success, solved_grid = solver.solve_two_phase_nonogram(
+        phase1_row_clues, phase1_col_clues,
+        phase2_row_clues, phase2_col_clues
+    )
+    
+    if success:
+        print("\n✅ Puzzle solved successfully!")
+        print("Solved puzzle:")
+        for row in solved_grid:
+            print(''.join(row))
+        return True
+    else:
+        print("\n❌ Could not solve puzzle completely.")
+        print("Partial solution:")
+        for row in solved_grid:
+            print(''.join(row))
+        return False
 
 def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
     return [['-' for _ in range(width)] for _ in range(height)]
-
 def main():
     print("Squared Away Nonogram Generator")
+    
+    # Check for command line arguments
+    solver_mode = '--solve' in sys.argv or '-s' in sys.argv
+    headless_mode = '--headless' in sys.argv or '-h' in sys.argv
+    
+    if solver_mode:
+        print("AI Solver mode enabled")
 
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
         # Reading from file or pipe
         grid_str = sys.stdin.read()
-        process_nonogram(grid_str)
+        if solver_mode and headless_mode:
+            solve_puzzle_headless(grid_str)
+        else:
+            process_nonogram(grid_str, solver_mode=solver_mode)
     else:
-        # Editor mode
+        # Check if solver mode was requested with a file argument
+        if solver_mode and len(sys.argv) > 2:
+            # Find the file argument (not the --solve flag)
+            filename = None
+            for arg in sys.argv[1:]:
+                if not arg.startswith('-'):
+                    filename = arg
+                    break
+            
+            if filename:
+                try:
+                    with open(filename, 'r') as f:
+                        grid_str = f.read()
+                    
+                    if headless_mode:
+                        solve_puzzle_headless(grid_str)
+                    else:
+                        process_nonogram(grid_str, solver_mode=True)
+                    return
+                except FileNotFoundError:
+                    print(f"File not found: {filename}")
+                    return
+        
+        # Editor mode (interactive)
+        if solver_mode:
+            print("Solver mode requires a puzzle file.")
+            print("Usage: python squared_away.py --solve [--headless] puzzle.txt")
+            return
+            
         try:
             width = int(input("Enter puzzle width: "))
             height = int(input("Enter puzzle height: "))

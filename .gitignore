@@ -17,6 +17,10 @@ build/
 # matplotlib cache
 .matplotlib/
 
+# Debug and temporary files
+debug_*.py
+temp_*.py
+
 # Other common files to ignore
 .DS_Store
 .env
