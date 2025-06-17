@@ -381,6 +381,17 @@ def create_empty_grid(width, height):
 def main():
     print("Squared Away Nonogram Generator")
 
+    # Preset options for common puzzle sizes
+    PRESETS = [
+        (5, 5),
+        (10, 10),
+        (15, 15),
+        (20, 15),
+        (20, 20),
+        (25, 20),
+        (30, 20),
+    ]
+
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
         # Reading from file or pipe
@@ -389,16 +400,25 @@ def main():
     else:
         # Editor mode
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
+            print("Select a puzzle size preset or enter custom dimensions:")
+            for idx, (w, h) in enumerate(PRESETS, 1):
+                print(f"  {idx}. {w} x {h}")
+            print(f"  {len(PRESETS)+1}. Custom size")
+            choice = input(f"Enter choice [1-{len(PRESETS)+1}]: ").strip()
+            if choice.isdigit() and 1 <= int(choice) <= len(PRESETS):
+                width, height = PRESETS[int(choice)-1]
+            elif choice == str(len(PRESETS)+1):
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    return
+            else:
+                print("Invalid choice.")
                 return
-                
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
-            
         except ValueError:
             print("Please enter valid integers for dimensions")
 
