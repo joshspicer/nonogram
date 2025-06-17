@@ -108,9 +108,21 @@ class NonoGramVisualizer:
         # Set up the visualization
         self.fig = None
         self.ax = None
-        self.current_phase = 0  # 0: empty, 1: after shading, 2: after erasing
-        self.phases = ["Initial Grid", "Phase 01: Apply foundation protocol", "Phase 02: Execute refinement protocol"]
-        
+        self.current_phase = 0  # 0: empty, 1: after shading, 2: after erasing, 3: funny color mode
+        self.phases = [
+            "Initial Grid",
+            "Phase 01: Apply foundation protocol",
+            "Phase 02: Execute refinement protocol",
+            "Funny Color Mode! (press ENTER to stop)"
+        ]
+        self.funny_color_anim = None
+        self.funny_color_artists = []
+        self.funny_color_palette = [
+            '#FF69B4', '#FFD700', '#00FF00', '#00FFFF', '#FF00FF', '#FF4500', '#1E90FF',
+            '#9400D3', '#00CED1', '#FF6347', '#7FFF00', '#FF1493', '#00BFFF', '#FFA500', '#ADFF2F',
+            '#DC143C', '#00FF7F', '#8A2BE2', '#FFB6C1', '#20B2AA', '#FF8C00', '#B22222', '#00FA9A',
+            '#FF00FF', '#7CFC00', '#FFDEAD', '#40E0D0', '#C71585', '#E9967A', '#8B0000', '#00FFEF'
+        ]
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
         
@@ -208,6 +220,10 @@ class NonoGramVisualizer:
     def draw_puzzle(self):
         self.ax.clear()
 
+        # Calculate grid offsets for clues (must be before set_xlim/set_ylim)
+        row_offset = max(2.5, self.max_row_clues * 0.7)
+        col_offset = max(2.5, self.max_col_clues * 0.6)
+
         # Set title based on editor phase or viewing phase
         if self.editor_mode:
             if self.editor_phase == 1:
@@ -217,10 +233,6 @@ class NonoGramVisualizer:
         else:
             self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
 
-        # Calculate grid offsets for clues
-        row_offset = max(2.5, self.max_row_clues * 0.7)
-        col_offset = max(2.5, self.max_col_clues * 0.6)
-
         # Draw the grid
         for i in range(self.height + 1):
             self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
@@ -228,21 +240,32 @@ class NonoGramVisualizer:
             self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
 
         # Fill cells based on phase or editor mode
+        import random
+        self.funny_color_artists = []
         for i in range(self.height):
             for j in range(self.width):
                 cell = self.grid[i][j]
-
-                if self.current_phase == 0 and not self.editor_mode:  
+                if self.current_phase == 3 and not self.editor_mode:
+                    # Funny color mode: fill all phase 1 cells with random colors
+                    if cell in ['1', 'X']:
+                        color = random.choice(self.funny_color_palette)
+                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                               facecolor=color, edgecolor='black',
+                                               hatch=random.choice(['/', '\\', '|', '-', '+', 'x', 'o', '.', '*']),
+                                               alpha=0.9)
+                        self.ax.add_patch(rect)
+                        self.funny_color_artists.append(rect)
+                elif self.current_phase == 0 and not self.editor_mode:
                     # Empty grid in initial phase
                     pass
-                elif self.current_phase == 1 and not self.editor_mode:  
+                elif self.current_phase == 1 and not self.editor_mode:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black',
                                                hatch='xxx', alpha=0.7)
                         self.ax.add_patch(rect)
-                else:  
+                else:
                     # Phase 2 or editor mode
                     if self.editor_mode:
                         # Show different visualizations based on editor phase
@@ -260,7 +283,6 @@ class NonoGramVisualizer:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                      facecolor='gray', edgecolor='black')
                                 self.ax.add_patch(rect)
-                            
                             # Then highlight phase 2 cells
                             if cell in ['2', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
@@ -269,17 +291,63 @@ class NonoGramVisualizer:
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
-                        # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                facecolor='gray', edgecolor='black')
                         self.ax.add_patch(rect)
-                        
                         # Then show cells that should be erased with a distinctive pattern
                         if cell in ['2', 'X']:
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
                                                  facecolor='white', edgecolor='black', 
                                                  hatch='///', alpha=0.7)
                             self.ax.add_patch(rect)
+
+        # -- Row Clues --
+        for i, clues in enumerate(self.shading_row_clues):
+            # -- Phase 1 clues (black) --
+            clue_text = ' '.join(map(str, clues))
+            self.ax.text(-0.5, self.height-i-0.5, clue_text,
+                         ha='right', va='center', fontsize=10)
+            # -- Phase 2 clues (red) --
+            erasing_clues = self.erasing_row_clues[i]
+            if erasing_clues != [0]:
+                erasing_text = ' '.join(map(str, erasing_clues))
+                self.ax.text(-0.5, self.height-i-0.8, erasing_text,
+                             ha='right', va='center', fontsize=10, color='red')
+
+        # -- Column Clues --
+        for j, clues in enumerate(self.shading_col_clues):
+            # -- Phase 1 clues (black) --
+            clue_text = '\n'.join(map(str, clues))
+            self.ax.text(j+0.5, self.height+0.1, clue_text,
+                         ha='center', va='bottom', fontsize=10)
+            # -- Phase 2 clues (red) --
+            erasing_clues = self.erasing_col_clues[j]
+            if erasing_clues != [0]:
+                erasing_text = '\n'.join(map(str, erasing_clues))
+                self.ax.text(j+0.8, self.height+0.1, erasing_text,
+                             ha='center', va='bottom', fontsize=10, color='red')
+
+        # Set the view limits
+        self.ax.set_xlim(-row_offset, self.width)
+        self.ax.set_ylim(-1, self.height + col_offset)
+
+        # Hide axis ticks
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+
+        plt.draw()
+
+    def start_funny_color_animation(self):
+        import random
+        import matplotlib.animation as animation
+        if self.funny_color_anim is not None:
+            self.funny_color_anim.event_source.stop()
+        def update(frame):
+            for rect in self.funny_color_artists:
+                rect.set_facecolor(random.choice(self.funny_color_palette))
+                rect.set_hatch(random.choice(['/', '\\', '|', '-', '+', 'x', 'o', '.', '*']))
+            self.fig.canvas.draw_idle()
+        self.funny_color_anim = animation.FuncAnimation(self.fig, update, interval=250)
 
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
@@ -323,11 +391,10 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        instruction = "Press ENTER to cycle modes (Funny Color Mode included!)"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
-            
         plt.tight_layout()
         plt.subplots_adjust(top=0.9, bottom=0.1)
         plt.show()
@@ -336,37 +403,21 @@ class NonoGramVisualizer:
         """Handle keyboard input for navigation and saving"""
         if event.key == 'enter':
             if self.editor_mode:
-                # In editor mode, use Enter to advance phase or save
+                # ...existing code...
                 if self.editor_phase == 1:
-                    # Store grid state before transition to prevent bugs
-                    grid_copy = [row[:] for row in self.grid]
-                    
-                    # Advance to phase 2
-                    self.editor_phase = 2
-                    self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
-                    print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
-                    
-                    # Restore grid state to prevent unwanted changes
-                    self.grid = grid_copy
-                    
-                    # Update clues and redraw
-                    self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
-                    self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+                    # ...existing code...
                     self.draw_puzzle()
                 else:
-                    # Save the completed puzzle
-                    filename = "nonogram_puzzle.txt"
-                    with open(filename, 'w') as f:
-                        for row in self.grid:
-                            f.write(''.join(row) + '\n')
-                    print(f"Puzzle saved to {filename}")
-                    
-                    # Close the figure
+                    # ...existing code...
                     plt.close(self.fig)
             else:
-                # In viewing mode, use Enter to advance phase
-                self.current_phase = (self.current_phase + 1) % 3
+                # In viewing mode, use Enter to advance phase (now 4 phases)
+                self.current_phase = (self.current_phase + 1) % 4
                 self.draw_puzzle()
+                if self.current_phase == 3:
+                    self.start_funny_color_animation()
+                elif self.funny_color_anim is not None:
+                    self.funny_color_anim.event_source.stop()
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
