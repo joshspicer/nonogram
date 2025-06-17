@@ -229,9 +229,9 @@ class NonoGramVisualizer:
 
         # Fill cells based on phase or editor mode
         for i in range(self.height):
-            for j in range(self.width):
+            for j in range(self.width):   
                 cell = self.grid[i][j]
-
+   
                 if self.current_phase == 0 and not self.editor_mode:  
                     # Empty grid in initial phase
                     pass
