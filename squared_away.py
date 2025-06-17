@@ -11,6 +11,7 @@ This program generates clues for a two-phase nonogram puzzle:
 The program also visualizes the puzzle with matplotlib and provides an editor mode.
 """
 import sys
+import argparse
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
@@ -381,6 +382,12 @@ def create_empty_grid(width, height):
 def main():
     print("Squared Away Nonogram Generator")
 
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Squared Away Nonogram Generator")
+    parser.add_argument('--width', '-w', type=int, help='Grid width for editor mode')
+    parser.add_argument('--height', type=int, help='Grid height for editor mode')
+    args = parser.parse_args()
+
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
         # Reading from file or pipe
@@ -389,8 +396,14 @@ def main():
     else:
         # Editor mode
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
+            # Use command-line arguments if provided, otherwise prompt for input
+            if args.width is not None and args.height is not None:
+                width = args.width
+                height = args.height
+            else:
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                
             if width <= 0 or height <= 0:
                 print("Dimensions must be positive integers")
                 return
