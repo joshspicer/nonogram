@@ -17,8 +17,32 @@ from matplotlib.widgets import Button
 import numpy as np
 
 def parse_grid(grid_str):
-    """Parse the input grid string into a 2D list."""
-    return [list(line.strip()) for line in grid_str.strip().split('\n')]
+    """Parse the input grid string into a 3D list (layers of 2D grids).
+    If no layer separators found, creates a single layer."""
+    lines = grid_str.strip().split('\n')
+    
+    # Check if input contains layer separators (empty lines or layer markers)
+    layers = []
+    current_layer = []
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('LAYER') or line == '':
+            if current_layer:
+                layers.append([list(row) for row in current_layer])
+                current_layer = []
+        else:
+            current_layer.append(line)
+    
+    # Add the last layer
+    if current_layer:
+        layers.append([list(row) for row in current_layer])
+    
+    # If no layers were found or only one layer, create a single layer
+    if not layers:
+        layers = [[list(line) for line in lines if line.strip()]]
+    
+    return layers
 
 def generate_shading_clues(grid):
     """Generate the phase 1 shading clues for rows and columns.
@@ -89,21 +113,26 @@ def generate_erasing_clues(grid):
     return row_clues, col_clues
 
 class NonoGramVisualizer:
-    def __init__(self, grid, editor_mode=False):
-        self.grid = grid
-        self.height = len(grid)
-        self.width = len(grid[0])
+    def __init__(self, grid_3d, editor_mode=False):
+        # Handle both 2D (backward compatibility) and 3D grids
+        if isinstance(grid_3d[0][0], list):
+            # Already 3D
+            self.grid_3d = grid_3d
+        else:
+            # Convert 2D to 3D (single layer)
+            self.grid_3d = [grid_3d]
+        
+        self.layers = len(self.grid_3d)
+        self.current_layer = 0
+        self.grid = self.grid_3d[self.current_layer]  # Current layer reference
+        self.height = len(self.grid)
+        self.width = len(self.grid[0])
         self.editor_mode = editor_mode
         self.editor_phase = 1  # Start with Phase 1 in editor mode
         self.click_enabled = True  # Flag to control click processing
         
-        # Generate clues
-        self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
-        self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(grid)
-        
-        # Calculate max number of clues for sizing
-        self.max_row_clues = max(len(clues) for clues in self.shading_row_clues)
-        self.max_col_clues = max(len(clues) for clues in self.shading_col_clues)
+        # Generate clues for current layer
+        self.update_clues()
         
         # Set up the visualization
         self.fig = None
@@ -113,16 +142,42 @@ class NonoGramVisualizer:
         
         if editor_mode:
             self.current_phase = 2  # Show the final state in editor mode
+    
+    def update_clues(self):
+        """Update clues for the current layer."""
+        self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
+        self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+        
+        # Calculate max number of clues for sizing
+        self.max_row_clues = max(len(clues) for clues in self.shading_row_clues)
+        self.max_col_clues = max(len(clues) for clues in self.shading_col_clues)
+    
+    def next_layer(self):
+        """Navigate to the next layer."""
+        if self.layers > 1:
+            self.current_layer = (self.current_layer + 1) % self.layers
+            self.grid = self.grid_3d[self.current_layer]
+            self.update_clues()
+            self.draw_puzzle()
+    
+    def prev_layer(self):
+        """Navigate to the previous layer."""
+        if self.layers > 1:
+            self.current_layer = (self.current_layer - 1) % self.layers
+            self.grid = self.grid_3d[self.current_layer]
+            self.update_clues()
+            self.draw_puzzle()
         
     def setup_figure(self):
         # Create the figure with enough space for clues
         self.fig, self.ax = plt.subplots()
         
         # Set title based on current phase
+        layer_info = f" (Layer {self.current_layer + 1}/{self.layers})" if self.layers > 1 else ""
         if self.editor_mode:
-            self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
+            self.fig.suptitle(f"Nonogram Editor Mode - Phase 1: Shading{layer_info}", fontsize=16)
         else:
-            self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
+            self.fig.suptitle(f"{self.phases[self.current_phase]}{layer_info}", fontsize=16)
         
         # Create keyboard binding for navigation
         if not self.editor_mode:
@@ -177,7 +232,8 @@ class NonoGramVisualizer:
             
             # When in phase 1, advance to phase 2
             self.editor_phase = 2
-            self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+            layer_info = f" (Layer {self.current_layer + 1}/{self.layers})" if self.layers > 1 else ""
+            self.fig.suptitle(f"Nonogram Editor Mode - Phase 2: Erasing{layer_info}", fontsize=16)
             print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
             
             # Update the button text
@@ -194,8 +250,13 @@ class NonoGramVisualizer:
             # When in phase 2, save the completed puzzle
             filename = "nonogram_puzzle.txt"
             with open(filename, 'w') as f:
-                for row in self.grid:
-                    f.write(''.join(row) + '\n')
+                for layer_idx, layer in enumerate(self.grid_3d):
+                    if self.layers > 1:
+                        f.write(f"LAYER {layer_idx + 1}\n")
+                    for row in layer:
+                        f.write(''.join(row) + '\n')
+                    if layer_idx < self.layers - 1:
+                        f.write('\n')
             print(f"Puzzle saved to {filename}")
             
             # Close the figure
@@ -209,13 +270,14 @@ class NonoGramVisualizer:
         self.ax.clear()
 
         # Set title based on editor phase or viewing phase
+        layer_info = f" (Layer {self.current_layer + 1}/{self.layers})" if self.layers > 1 else ""
         if self.editor_mode:
             if self.editor_phase == 1:
-                self.fig.suptitle("Nonogram Editor Mode - Phase 1: Shading", fontsize=16)
+                self.fig.suptitle(f"Nonogram Editor Mode - Phase 1: Shading{layer_info}", fontsize=16)
             else:
-                self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                self.fig.suptitle(f"Nonogram Editor Mode - Phase 2: Erasing{layer_info}", fontsize=16)
         else:
-            self.fig.suptitle(self.phases[self.current_phase], fontsize=16)
+            self.fig.suptitle(f"{self.phases[self.current_phase]}{layer_info}", fontsize=16)
 
         # Calculate grid offsets for clues
         row_offset = max(2.5, self.max_row_clues * 0.7)
@@ -324,6 +386,8 @@ class NonoGramVisualizer:
         self.draw_puzzle()
 
         instruction = "Press ENTER to cycle modes"
+        if self.layers > 1:
+            instruction += " | UP/DOWN arrows to change layers"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
@@ -343,7 +407,8 @@ class NonoGramVisualizer:
                     
                     # Advance to phase 2
                     self.editor_phase = 2
-                    self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                    layer_info = f" (Layer {self.current_layer + 1}/{self.layers})" if self.layers > 1 else ""
+                    self.fig.suptitle(f"Nonogram Editor Mode - Phase 2: Erasing{layer_info}", fontsize=16)
                     print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
                     
                     # Restore grid state to prevent unwanted changes
@@ -357,8 +422,13 @@ class NonoGramVisualizer:
                     # Save the completed puzzle
                     filename = "nonogram_puzzle.txt"
                     with open(filename, 'w') as f:
-                        for row in self.grid:
-                            f.write(''.join(row) + '\n')
+                        for layer_idx, layer in enumerate(self.grid_3d):
+                            if self.layers > 1:
+                                f.write(f"LAYER {layer_idx + 1}\n")
+                            for row in layer:
+                                f.write(''.join(row) + '\n')
+                            if layer_idx < self.layers - 1:
+                                f.write('\n')
                     print(f"Puzzle saved to {filename}")
                     
                     # Close the figure
@@ -367,16 +437,22 @@ class NonoGramVisualizer:
                 # In viewing mode, use Enter to advance phase
                 self.current_phase = (self.current_phase + 1) % 3
                 self.draw_puzzle()
+        elif event.key == 'up':
+            # Navigate to next layer
+            self.next_layer()
+        elif event.key == 'down':
+            # Navigate to previous layer
+            self.prev_layer()
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
-    grid = parse_grid(grid_str)
-    visualizer = NonoGramVisualizer(grid)
+    grid_3d = parse_grid(grid_str)
+    visualizer = NonoGramVisualizer(grid_3d)
     visualizer.visualize()
 
-def create_empty_grid(width, height):
-    """Create an empty grid with specified dimensions."""
-    return [['-' for _ in range(width)] for _ in range(height)]
+def create_empty_grid(width, height, layers=1):
+    """Create an empty 3D grid with specified dimensions."""
+    return [[['-' for _ in range(width)] for _ in range(height)] for _ in range(layers)]
 
 def main():
     print("Squared Away Nonogram Generator")
@@ -391,12 +467,15 @@ def main():
         try:
             width = int(input("Enter puzzle width: "))
             height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
+            layers_input = input("Enter number of layers (default 1): ").strip()
+            layers = int(layers_input) if layers_input else 1
+            
+            if width <= 0 or height <= 0 or layers <= 0:
                 print("Dimensions must be positive integers")
                 return
                 
-            grid = create_empty_grid(width, height)
-            visualizer = NonoGramVisualizer(grid, editor_mode=True)
+            grid_3d = create_empty_grid(width, height, layers)
+            visualizer = NonoGramVisualizer(grid_3d, editor_mode=True)
             visualizer.visualize()
             
         except ValueError:
