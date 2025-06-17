@@ -239,7 +239,7 @@ class NonoGramVisualizer:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black',
+                                               facecolor='blue', edgecolor='green',
                                                hatch='xxx', alpha=0.7)
                         self.ax.add_patch(rect)
                 else:  
