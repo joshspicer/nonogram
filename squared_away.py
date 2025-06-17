@@ -387,18 +387,34 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode
+        # Editor mode with presets
+        presets = [
+            (5, 5),
+            (10, 10),
+            (15, 15),
+            (20, 15),
+            (15, 20),
+        ]
+        print("Select a preset for puzzle size or enter custom values:")
+        for idx, (w, h) in enumerate(presets, 1):
+            print(f"  {idx}. {w} x {h}")
+        print(f"  {len(presets)+1}. Custom size")
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
+            choice = input(f"Enter choice [1-{len(presets)+1}]: ").strip()
+            if choice.isdigit() and 1 <= int(choice) <= len(presets):
+                width, height = presets[int(choice)-1]
+            elif choice == str(len(presets)+1):
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+            else:
+                print("Invalid choice.")
+                return
             if width <= 0 or height <= 0:
                 print("Dimensions must be positive integers")
                 return
-                
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
-            
         except ValueError:
             print("Please enter valid integers for dimensions")
 
