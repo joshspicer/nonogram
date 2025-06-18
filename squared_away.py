@@ -96,6 +96,8 @@ class NonoGramVisualizer:
         self.editor_mode = editor_mode
         self.editor_phase = 1  # Start with Phase 1 in editor mode
         self.click_enabled = True  # Flag to control click processing
+        self.sparkle_mode = False  # Flag to enable sparkle effect on click
+        self.sparkle_patches = []  # Store sparkle effect patches for cleanup
         
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
@@ -144,7 +146,12 @@ class NonoGramVisualizer:
         
         # Check if the click is within the grid
         if 0 <= row < self.height and 0 <= col < self.width:
-            # Handle clicks based on the current editor phase
+            # Handle sparkle mode
+            if self.sparkle_mode:
+                self.create_sparkle_effect(col, row)
+                return
+            
+            # Handle normal editing clicks based on the current editor phase
             if self.editor_phase == 1:
                 # Phase 1: Toggle between empty (-) and phase 1 (1)
                 if self.grid[row][col] == '-':
@@ -168,6 +175,99 @@ class NonoGramVisualizer:
             
             # Redraw the puzzle
             self.draw_puzzle()
+    
+    def create_sparkle_effect(self, col, row):
+        """Create a sparkle effect at the specified grid position"""
+        # Clear any existing sparkle effects
+        self.clear_sparkle_effects()
+        
+        # Convert grid coordinates to display coordinates
+        center_x = col + 0.5
+        center_y = self.height - row - 0.5
+        
+        # Create multiple star-like shapes around the click point
+        sparkle_colors = ['gold', 'yellow', 'white', 'cyan', 'magenta']
+        sparkle_sizes = [0.3, 0.2, 0.15, 0.1, 0.08]
+        
+        for i, (color, size) in enumerate(zip(sparkle_colors, sparkle_sizes)):
+            # Create sparkles at different offsets from center
+            offsets = [
+                (0, 0),  # center
+                (0.2, 0.2), (-0.2, 0.2), (0.2, -0.2), (-0.2, -0.2),  # corners
+                (0.3, 0), (-0.3, 0), (0, 0.3), (0, -0.3),  # edges
+            ]
+            
+            for j, (dx, dy) in enumerate(offsets[:3 + i]):  # Different number of sparkles per layer
+                spark_x = center_x + dx
+                spark_y = center_y + dy
+                
+                # Create a star-like sparkle using multiple lines
+                star_arms = 8
+                inner_radius = size * 0.3
+                outer_radius = size
+                
+                # Create star points
+                angles = [i * 2 * np.pi / star_arms for i in range(star_arms)]
+                star_x = []
+                star_y = []
+                
+                for k, angle in enumerate(angles):
+                    # Alternate between inner and outer radius
+                    radius = outer_radius if k % 2 == 0 else inner_radius
+                    x = spark_x + radius * np.cos(angle)
+                    y = spark_y + radius * np.sin(angle)
+                    star_x.append(x)
+                    star_y.append(y)
+                
+                # Close the star
+                star_x.append(star_x[0])
+                star_y.append(star_y[0])
+                
+                # Create the star patch
+                star_patch = patches.Polygon(list(zip(star_x, star_y)), 
+                                           facecolor=color, edgecolor='white',
+                                           alpha=0.8, linewidth=0.5)
+                self.ax.add_patch(star_patch)
+                self.sparkle_patches.append(star_patch)
+        
+        # Add some circular sparkles for variety
+        for i in range(5):
+            angle = i * 2 * np.pi / 5
+            radius = 0.4
+            spark_x = center_x + radius * np.cos(angle)
+            spark_y = center_y + radius * np.sin(angle)
+            
+            circle = patches.Circle((spark_x, spark_y), 0.05, 
+                                  facecolor='white', edgecolor='gold',
+                                  alpha=0.9, linewidth=1)
+            self.ax.add_patch(circle)
+            self.sparkle_patches.append(circle)
+        
+        # Refresh the display
+        plt.draw()
+        
+        # Schedule sparkle cleanup after 1.5 seconds using matplotlib's timer
+        try:
+            self.fig.canvas.start_event_loop_default()
+            timer = self.fig.canvas.new_timer(interval=1500)  # 1.5 seconds
+            timer.single_shot = True
+            timer.add_callback(self._cleanup_sparkles_callback)
+            timer.start()
+        except:
+            # Fallback: immediate cleanup if timer doesn't work
+            pass
+    
+    def _cleanup_sparkles_callback(self):
+        """Callback to clean up sparkle effects after timer"""
+        self.clear_sparkle_effects()
+        plt.draw()
+    
+    def clear_sparkle_effects(self):
+        """Remove all sparkle effect patches from the plot"""
+        for patch in self.sparkle_patches:
+            if patch in self.ax.patches:
+                patch.remove()
+        self.sparkle_patches.clear()
     
     def save_grid(self, event=None):
         """Save the current grid to a file or advance to next editor phase"""
@@ -323,7 +423,10 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        if self.editor_mode:
+            instruction = "Press ENTER to advance/save • Press 'S' to toggle sparkle mode"
+        else:
+            instruction = "Press ENTER to cycle modes"
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
@@ -334,6 +437,28 @@ class NonoGramVisualizer:
 
     def handle_key_press(self, event):
         """Handle keyboard input for navigation and saving"""
+        if event.key == 's' and self.editor_mode:
+            # Toggle sparkle mode with 's' key
+            self.sparkle_mode = not self.sparkle_mode
+            self.clear_sparkle_effects()  # Clear any existing sparkles
+            mode_text = "ON" if self.sparkle_mode else "OFF"
+            print(f"Sparkle mode: {mode_text}")
+            
+            # Update title to show current mode
+            base_title = "Nonogram Editor Mode"
+            if self.editor_phase == 1:
+                phase_text = "Phase 1: Shading"
+            else:
+                phase_text = "Phase 2: Erasing"
+            
+            if self.sparkle_mode:
+                self.fig.suptitle(f"{base_title} - {phase_text} (SPARKLE MODE)", fontsize=16)
+            else:
+                self.fig.suptitle(f"{base_title} - {phase_text}", fontsize=16)
+            
+            plt.draw()
+            return
+            
         if event.key == 'enter':
             if self.editor_mode:
                 # In editor mode, use Enter to advance phase or save
@@ -343,7 +468,10 @@ class NonoGramVisualizer:
                     
                     # Advance to phase 2
                     self.editor_phase = 2
-                    self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                    base_title = "Nonogram Editor Mode - Phase 2: Erasing"
+                    if self.sparkle_mode:
+                        base_title += " (SPARKLE MODE)"
+                    self.fig.suptitle(base_title, fontsize=16)
                     print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
                     
                     # Restore grid state to prevent unwanted changes
