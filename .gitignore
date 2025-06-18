@@ -17,6 +17,13 @@ build/
 # matplotlib cache
 .matplotlib/
 
+# Node.js dependencies and build output
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
 # Other common files to ignore
 .DS_Store
 .env
