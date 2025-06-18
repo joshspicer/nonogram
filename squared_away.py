@@ -441,12 +441,41 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode
+        # Editor mode with grid size presets
+        print("\nChoose grid size:")
+        print("1. 5x5 (Beginner)")
+        print("2. 10x10 (Intermediate)")
+        print("3. 15x15 (Advanced)")
+        print("4. 20x20 (Expert)")
+        print("5. 10x15 (Rectangular)")
+        print("6. 15x10 (Rectangular)")
+        print("7. Custom size")
+        
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
+            choice = input("\nSelect option (1-7): ").strip()
+            
+            # Define preset sizes
+            presets = {
+                '1': (5, 5),
+                '2': (10, 10),
+                '3': (15, 15),
+                '4': (20, 20),
+                '5': (10, 15),
+                '6': (15, 10)
+            }
+            
+            if choice in presets:
+                width, height = presets[choice]
+                print(f"Creating {width}x{height} grid...")
+            elif choice == '7':
+                # Custom size option
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    return
+            else:
+                print("Invalid option. Please select 1-7.")
                 return
                 
             grid = create_empty_grid(width, height)
@@ -454,7 +483,7 @@ def main():
             visualizer.visualize()
             
         except ValueError:
-            print("Please enter valid integers for dimensions")
+            print("Please enter valid input")
 
 if __name__ == "__main__":
     main()
