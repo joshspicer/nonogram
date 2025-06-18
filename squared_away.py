@@ -387,43 +387,18 @@ def main():
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode with presets
-        presets = [
-            # Small grids
-            (3, 3), (4, 4), (5, 5), (6, 6),
-            # Medium square grids
-            (8, 8), (10, 10), (12, 12), (15, 15),
-            # Large square grids
-            (20, 20), (25, 25), (30, 30),
-            # Small rectangles
-            (5, 10), (10, 5), (6, 12), (12, 6),
-            # Medium rectangles
-            (10, 15), (15, 10), (12, 18), (18, 12),
-            # Large rectangles
-            (20, 15), (15, 20), (20, 30), (30, 20), (25, 30), (30, 25),
-            # Extra large
-            (40, 30), (30, 40), (50, 50),
-        ]
-        print("Select a puzzle size preset or enter custom dimensions:")
-        for idx, (w, h) in enumerate(presets, 1):
-            print(f"  {idx}. {w} x {h}")
-        print(f"  {len(presets)+1}. Custom size")
+        # Editor mode
         try:
-            choice = input(f"Enter choice [1-{len(presets)+1}]: ").strip()
-            if choice.isdigit() and 1 <= int(choice) <= len(presets):
-                width, height = presets[int(choice)-1]
-            elif choice == str(len(presets)+1):
-                width = int(input("Enter puzzle width: "))
-                height = int(input("Enter puzzle height: "))
-                if width <= 0 or height <= 0:
-                    print("Dimensions must be positive integers")
-                    return
-            else:
-                print("Invalid choice.")
+            width = int(input("Enter puzzle width: "))
+            height = int(input("Enter puzzle height: "))
+            if width <= 0 or height <= 0:
+                print("Dimensions must be positive integers")
                 return
+                
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
+            
         except ValueError:
             print("Please enter valid integers for dimensions")
 
