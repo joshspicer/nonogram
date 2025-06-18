@@ -378,29 +378,101 @@ def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
     return [['-' for _ in range(width)] for _ in range(height)]
 
+def select_difficulty():
+    """Display difficulty selection menu and return selected difficulty"""
+    print("\nSelect difficulty level:")
+    print("1. Easy (5x5 simple patterns)")
+    print("2. Medium (7x15 moderate patterns)")  
+    print("3. Hard (15x19 complex patterns)")
+    print("4. Editor Mode (create new puzzle)")
+    
+    while True:
+        try:
+            choice = input("\nEnter your choice (1-4): ").strip()
+            if choice in ['1', '2', '3', '4']:
+                return choice
+            else:
+                print("Please enter 1, 2, 3, or 4")
+        except (ValueError, EOFError):
+            print("Please enter 1, 2, 3, or 4")
+
+def list_puzzles(difficulty):
+    """List available puzzles for the given difficulty"""
+    import os
+    difficulty_map = {'1': 'easy', '2': 'medium', '3': 'hard'}
+    puzzle_dir = f"puzzles/{difficulty_map[difficulty]}"
+    
+    if not os.path.exists(puzzle_dir):
+        print(f"No puzzles found for {difficulty_map[difficulty]} difficulty")
+        return []
+    
+    puzzle_files = [f for f in os.listdir(puzzle_dir) if f.endswith('.txt')]
+    if not puzzle_files:
+        print(f"No puzzles found for {difficulty_map[difficulty]} difficulty")
+        return []
+    
+    print(f"\nAvailable {difficulty_map[difficulty]} puzzles:")
+    for i, puzzle in enumerate(puzzle_files, 1):
+        print(f"{i}. {puzzle[:-4].replace('_', ' ').title()}")
+    
+    return puzzle_files
+
+def select_puzzle(puzzle_files, difficulty):
+    """Let user select a specific puzzle"""
+    difficulty_map = {'1': 'easy', '2': 'medium', '3': 'hard'}
+    
+    while True:
+        try:
+            choice = input(f"\nSelect puzzle (1-{len(puzzle_files)}): ").strip()
+            puzzle_idx = int(choice) - 1
+            if 0 <= puzzle_idx < len(puzzle_files):
+                puzzle_path = f"puzzles/{difficulty_map[difficulty]}/{puzzle_files[puzzle_idx]}"
+                return puzzle_path
+            else:
+                print(f"Please enter a number between 1 and {len(puzzle_files)}")
+        except (ValueError, EOFError):
+            print(f"Please enter a number between 1 and {len(puzzle_files)}")
+
 def main():
     print("Squared Away Nonogram Generator")
 
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
-        # Reading from file or pipe
+        # Reading from file or pipe - maintain backward compatibility
         grid_str = sys.stdin.read()
         process_nonogram(grid_str)
     else:
-        # Editor mode
-        try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
-                return
+        # Interactive mode - show difficulty selection
+        difficulty = select_difficulty()
+        
+        if difficulty == '4':
+            # Editor mode
+            try:
+                width = int(input("Enter puzzle width: "))
+                height = int(input("Enter puzzle height: "))
+                if width <= 0 or height <= 0:
+                    print("Dimensions must be positive integers")
+                    return
+                    
+                grid = create_empty_grid(width, height)
+                visualizer = NonoGramVisualizer(grid, editor_mode=True)
+                visualizer.visualize()
                 
-            grid = create_empty_grid(width, height)
-            visualizer = NonoGramVisualizer(grid, editor_mode=True)
-            visualizer.visualize()
-            
-        except ValueError:
-            print("Please enter valid integers for dimensions")
+            except ValueError:
+                print("Please enter valid integers for dimensions")
+        else:
+            # Puzzle selection mode
+            puzzle_files = list_puzzles(difficulty)
+            if puzzle_files:
+                puzzle_path = select_puzzle(puzzle_files, difficulty)
+                try:
+                    with open(puzzle_path, 'r') as f:
+                        grid_str = f.read()
+                    process_nonogram(grid_str)
+                except FileNotFoundError:
+                    print(f"Puzzle file not found: {puzzle_path}")
+                except Exception as e:
+                    print(f"Error loading puzzle: {e}")
 
 if __name__ == "__main__":
     main()
