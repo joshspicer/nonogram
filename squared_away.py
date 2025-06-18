@@ -12,6 +12,7 @@ The program also visualizes the puzzle with matplotlib and provides an editor mo
 """
 import sys
 import os
+import argparse
 
 # Check for display availability and set appropriate matplotlib backend
 def setup_matplotlib_backend():
@@ -164,6 +165,7 @@ class NonoGramVisualizer:
         self.editor_mode = editor_mode
         self.editor_phase = 1  # Start with Phase 1 in editor mode
         self.click_enabled = True  # Flag to control click processing
+        self.output_file = None  # For saving to file instead of displaying
         
         # Generate clues
         self.shading_row_clues, self.shading_col_clues = generate_shading_clues(grid)
@@ -412,10 +414,15 @@ class NonoGramVisualizer:
             plt.tight_layout()
             plt.subplots_adjust(top=0.9, bottom=0.1)
             
-            if INTERACTIVE_DISPLAY:
+            if self.output_file:
+                # Save to specified file
+                plt.savefig(self.output_file, dpi=150, bbox_inches='tight')
+                print(f"Visualization saved to {self.output_file}")
+                plt.close()
+            elif INTERACTIVE_DISPLAY:
                 plt.show()
             else:
-                # Save to file instead of showing
+                # Save to default file instead of showing
                 filename = "nonogram_visualization.png"
                 plt.savefig(filename, dpi=150, bbox_inches='tight')
                 print(f"Visualization saved to {filename} (no display available)")
@@ -535,79 +542,160 @@ MOUSE CONTROLS (Editor Mode):
 """
     print(help_text)
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Squared Away Nonogram Generator - Create and visualize two-phase nonogram puzzles",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+GRID FORMAT:
+    Each line represents a row of the grid. Valid characters:
+        '1' - Cell is shaded in Phase 1 only
+        '2' - Cell is erased in Phase 2 only  
+        'X' - Cell is used in both phases
+        '-' - Empty cell
+
+EXAMPLES:
+    # View existing puzzle
+    python3 squared_away.py puzzle.txt
+    cat puzzle.txt | python3 squared_away.py
+    
+    # Create new puzzle in editor mode
+    python3 squared_away.py --editor
+    python3 squared_away.py --editor --width 10 --height 10
+    
+    # Save visualization to file
+    python3 squared_away.py puzzle.txt --output puzzle.png
+        """
+    )
+    
+    parser.add_argument('input_file', nargs='?',
+                        help='Input puzzle file (if not provided, uses stdin or editor mode)')
+    parser.add_argument('--editor', '-e', action='store_true',
+                        help='Launch in editor mode to create new puzzles')
+    parser.add_argument('--width', '-w', type=int, metavar='N',
+                        help='Width for new puzzle in editor mode (1-100)')
+    parser.add_argument('--height', '-H', type=int, metavar='N', 
+                        help='Height for new puzzle in editor mode (1-100)')
+    parser.add_argument('--output', '-o', metavar='FILE',
+                        help='Save visualization to file instead of displaying')
+    parser.add_argument('--version', action='version', version='Squared Away Nonogram Generator 1.0')
+    
+    return parser.parse_args()
+
 def main():
     """Main entry point for the program."""
-    # Check for help flag
-    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
-        print_help()
-        return
-
+    args = parse_args()
+    
     print("Squared Away Nonogram Generator")
     
-    if not INTERACTIVE_DISPLAY:
+    if not INTERACTIVE_DISPLAY and not args.output:
         print("Note: No interactive display available. Visualizations will be saved as images.")
 
-    # Check if input is from a file/pipe or keyboard
-    if not sys.stdin.isatty():
-        # Reading from file or pipe
-        try:
-            grid_str = sys.stdin.read()
-            if not grid_str.strip():
-                print("Error: No input data provided")
-                print("Use -h or --help for usage information")
-                sys.exit(1)
-            process_nonogram(grid_str)
-        except KeyboardInterrupt:
-            print("\nOperation cancelled by user")
-            sys.exit(1)
-    else:
-        # Editor mode
-        if not INTERACTIVE_DISPLAY:
-            print("Warning: Editor mode requires an interactive display.")
-            print("Consider using file input instead: python3 squared_away.py < your_puzzle.txt")
-            
-        try:
+    try:
+        if args.editor:
+            # Editor mode
+            if not INTERACTIVE_DISPLAY and not args.output:
+                print("Warning: Editor mode works best with an interactive display.")
+                print("Consider using file input instead.")
+                
             print("\nEntering puzzle editor mode...")
             print("You'll create a two-phase nonogram puzzle:")
             print("- Phase 1: Mark cells to be shaded")
             print("- Phase 2: Mark cells to be erased")
             
-            while True:
-                try:
-                    width_input = input("\nEnter puzzle width (1-100): ").strip()
-                    if not width_input:
-                        print("Please enter a number.")
-                        continue
-                    width = int(width_input)
-                    break
-                except ValueError:
-                    print("Please enter a valid integer.")
-                    
-            while True:
-                try:
-                    height_input = input("Enter puzzle height (1-100): ").strip()
-                    if not height_input:
-                        print("Please enter a number.")
-                        continue
-                    height = int(height_input)
-                    break
-                except ValueError:
-                    print("Please enter a valid integer.")
+            # Get dimensions
+            if args.width and args.height:
+                width, height = args.width, args.height
+            else:
+                while True:
+                    try:
+                        width_input = input("\nEnter puzzle width (1-100): ").strip()
+                        if not width_input:
+                            print("Please enter a number.")
+                            continue
+                        width = int(width_input)
+                        break
+                    except ValueError:
+                        print("Please enter a valid integer.")
+                        
+                while True:
+                    try:
+                        height_input = input("Enter puzzle height (1-100): ").strip()
+                        if not height_input:
+                            print("Please enter a number.")
+                            continue
+                        height = int(height_input)
+                        break
+                    except ValueError:
+                        print("Please enter a valid integer.")
             
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
+            
+            # Set output file if specified
+            if args.output:
+                visualizer.output_file = args.output
+                
             visualizer.visualize()
             
-        except ValueError as e:
-            print(f"Error: {e}")
-            print("Please enter valid integers for dimensions (1-100)")
-            sys.exit(1)
-        except KeyboardInterrupt:
-            print("\nOperation cancelled by user")
-            sys.exit(1)
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            sys.exit(1)
+        elif args.input_file:
+            # File input mode
+            try:
+                with open(args.input_file, 'r') as f:
+                    grid_str = f.read()
+                if not grid_str.strip():
+                    print(f"Error: File {args.input_file} is empty")
+                    sys.exit(1)
+                
+                grid = parse_grid(grid_str)
+                visualizer = NonoGramVisualizer(grid)
+                
+                # Set output file if specified  
+                if args.output:
+                    visualizer.output_file = args.output
+                    
+                visualizer.visualize()
+                
+            except FileNotFoundError:
+                print(f"Error: File {args.input_file} not found")
+                sys.exit(1)
+            except PermissionError:
+                print(f"Error: Permission denied reading {args.input_file}")
+                sys.exit(1)
+                
+        else:
+            # Check if input is from stdin
+            if not sys.stdin.isatty():
+                # Reading from stdin/pipe
+                grid_str = sys.stdin.read()
+                if not grid_str.strip():
+                    print("Error: No input data provided")
+                    print("Use --help for usage information")
+                    sys.exit(1)
+                
+                grid = parse_grid(grid_str)
+                visualizer = NonoGramVisualizer(grid)
+                
+                # Set output file if specified
+                if args.output:
+                    visualizer.output_file = args.output
+                    
+                visualizer.visualize()
+            else:
+                # No input provided and not editor mode
+                print("Error: No input provided. Use --editor for editor mode or --help for usage.")
+                sys.exit(1)
+                
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
