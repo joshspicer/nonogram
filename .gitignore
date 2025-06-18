@@ -17,6 +17,20 @@ build/
 # matplotlib cache
 .matplotlib/
 
+# Go binaries
+nonogram
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test files
+*.test
+
+# Go build cache
+*.sum
+
 # Other common files to ignore
 .DS_Store
 .env
