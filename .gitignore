@@ -17,9 +17,6 @@ build/
 # matplotlib cache
 .matplotlib/
 
-# Other common files to ignore
-.DS_Store
-.env
-.venv
-env/
-ENV/
+# Ignore visualization outputs
+nonogram_visualization.png
+nonogram_puzzle.txt

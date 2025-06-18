@@ -11,6 +11,39 @@ This program generates clues for a two-phase nonogram puzzle:
 The program also visualizes the puzzle with matplotlib and provides an editor mode.
 """
 import sys
+import os
+
+# Check for display availability and set appropriate matplotlib backend
+def setup_matplotlib_backend():
+    """Set up appropriate matplotlib backend based on environment."""
+    import matplotlib
+    
+    # Check if we're in a headless environment
+    if os.environ.get('DISPLAY') is None and os.name != 'nt':
+        # No display available, use non-interactive backend
+        matplotlib.use('Agg')
+        return False
+    
+    # Check if we can use the default interactive backend
+    try:
+        matplotlib.use('TkAgg')  # Try TkAgg first
+        return True
+    except ImportError:
+        try:
+            matplotlib.use('Qt5Agg')  # Try Qt5Agg
+            return True
+        except ImportError:
+            try:
+                matplotlib.use('Qt4Agg')  # Try Qt4Agg
+                return True
+            except ImportError:
+                # Fall back to non-interactive
+                matplotlib.use('Agg')
+                return False
+
+# Set up matplotlib backend
+INTERACTIVE_DISPLAY = setup_matplotlib_backend()
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.widgets import Button
@@ -18,7 +51,36 @@ import numpy as np
 
 def parse_grid(grid_str):
     """Parse the input grid string into a 2D list."""
-    return [list(line.strip()) for line in grid_str.strip().split('\n')]
+    if not grid_str or not grid_str.strip():
+        raise ValueError("Grid string cannot be empty")
+    
+    lines = [line.strip() for line in grid_str.strip().split('\n') if line.strip()]
+    if not lines:
+        raise ValueError("No valid grid lines found")
+    
+    grid = [list(line) for line in lines]
+    
+    # Validate grid dimensions
+    if len(grid) == 0:
+        raise ValueError("Grid must have at least one row")
+    
+    width = len(grid[0])
+    if width == 0:
+        raise ValueError("Grid must have at least one column")
+    
+    # Check for consistent row lengths
+    for i, row in enumerate(grid):
+        if len(row) != width:
+            raise ValueError(f"Row {i+1} has {len(row)} columns, expected {width}")
+    
+    # Validate characters
+    valid_chars = {'1', '2', 'X', '-'}
+    for i, row in enumerate(grid):
+        for j, cell in enumerate(row):
+            if cell not in valid_chars:
+                raise ValueError(f"Invalid character '{cell}' at row {i+1}, column {j+1}. Valid characters are: {', '.join(sorted(valid_chars))}")
+    
+    return grid
 
 def generate_shading_clues(grid):
     """Generate the phase 1 shading clues for rows and columns.
@@ -90,6 +152,12 @@ def generate_erasing_clues(grid):
 
 class NonoGramVisualizer:
     def __init__(self, grid, editor_mode=False):
+        # Validate grid
+        if not grid:
+            raise ValueError("Grid cannot be empty")
+        if not all(len(row) == len(grid[0]) for row in grid):
+            raise ValueError("All grid rows must have the same length")
+        
         self.grid = grid
         self.height = len(grid)
         self.width = len(grid[0])
@@ -102,8 +170,8 @@ class NonoGramVisualizer:
         self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(grid)
         
         # Calculate max number of clues for sizing
-        self.max_row_clues = max(len(clues) for clues in self.shading_row_clues)
-        self.max_col_clues = max(len(clues) for clues in self.shading_col_clues)
+        self.max_row_clues = max(len(clues) for clues in self.shading_row_clues) if self.shading_row_clues else 1
+        self.max_col_clues = max(len(clues) for clues in self.shading_col_clues) if self.shading_col_clues else 1
         
         # Set up the visualization
         self.fig = None
@@ -180,8 +248,9 @@ class NonoGramVisualizer:
             self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
             print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
             
-            # Update the button text
-            self.save_button.label.set_text("Complete")
+            # Update the button text if it exists
+            if hasattr(self, 'save_button'):
+                self.save_button.label.set_text("Complete")
             
             # Restore grid state to prevent unwanted changes
             self.grid = grid_copy
@@ -192,14 +261,20 @@ class NonoGramVisualizer:
             self.draw_puzzle()
         else:
             # When in phase 2, save the completed puzzle
-            filename = "nonogram_puzzle.txt"
-            with open(filename, 'w') as f:
-                for row in self.grid:
-                    f.write(''.join(row) + '\n')
-            print(f"Puzzle saved to {filename}")
-            
-            # Close the figure
-            plt.close(self.fig)
+            try:
+                filename = "nonogram_puzzle.txt"
+                with open(filename, 'w') as f:
+                    for row in self.grid:
+                        f.write(''.join(row) + '\n')
+                print(f"Puzzle saved to {filename}")
+                
+                # Close the figure
+                if self.fig:
+                    plt.close(self.fig)
+            except IOError as e:
+                print(f"Error saving file: {e}")
+            except Exception as e:
+                print(f"Unexpected error during save: {e}")
             
     def next_phase(self, event=None):
         self.current_phase = (self.current_phase + 1) % 3
@@ -320,17 +395,36 @@ class NonoGramVisualizer:
         plt.draw()
 
     def visualize(self):
-        self.setup_figure()
-        self.draw_puzzle()
+        """Visualize the nonogram puzzle."""
+        try:
+            self.setup_figure()
+            self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
-        self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
-                    fontsize=12, fontweight="bold", color="blue",
-                    bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
+            if self.editor_mode:
+                instruction = "Click cells to toggle, press ENTER to advance/save"
+            else:
+                instruction = "Press ENTER to cycle modes"
             
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.9, bottom=0.1)
-        plt.show()
+            self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
+                        fontsize=12, fontweight="bold", color="blue",
+                        bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
+                
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.9, bottom=0.1)
+            
+            if INTERACTIVE_DISPLAY:
+                plt.show()
+            else:
+                # Save to file instead of showing
+                filename = "nonogram_visualization.png"
+                plt.savefig(filename, dpi=150, bbox_inches='tight')
+                print(f"Visualization saved to {filename} (no display available)")
+                plt.close()
+                
+        except Exception as e:
+            print(f"Error during visualization: {e}")
+            if self.fig:
+                plt.close(self.fig)
 
     def handle_key_press(self, event):
         """Handle keyboard input for navigation and saving"""
@@ -355,14 +449,20 @@ class NonoGramVisualizer:
                     self.draw_puzzle()
                 else:
                     # Save the completed puzzle
-                    filename = "nonogram_puzzle.txt"
-                    with open(filename, 'w') as f:
-                        for row in self.grid:
-                            f.write(''.join(row) + '\n')
-                    print(f"Puzzle saved to {filename}")
-                    
-                    # Close the figure
-                    plt.close(self.fig)
+                    try:
+                        filename = "nonogram_puzzle.txt"
+                        with open(filename, 'w') as f:
+                            for row in self.grid:
+                                f.write(''.join(row) + '\n')
+                        print(f"Puzzle saved to {filename}")
+                        
+                        # Close the figure
+                        if self.fig:
+                            plt.close(self.fig)
+                    except IOError as e:
+                        print(f"Error saving file: {e}")
+                    except Exception as e:
+                        print(f"Unexpected error during save: {e}")
             else:
                 # In viewing mode, use Enter to advance phase
                 self.current_phase = (self.current_phase + 1) % 3
@@ -370,37 +470,144 @@ class NonoGramVisualizer:
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
-    grid = parse_grid(grid_str)
-    visualizer = NonoGramVisualizer(grid)
-    visualizer.visualize()
+    try:
+        grid = parse_grid(grid_str)
+        visualizer = NonoGramVisualizer(grid)
+        visualizer.visualize()
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        sys.exit(1)
 
 def create_empty_grid(width, height):
     """Create an empty grid with specified dimensions."""
+    if width <= 0 or height <= 0:
+        raise ValueError("Grid dimensions must be positive integers")
+    if width > 100 or height > 100:
+        raise ValueError("Grid dimensions too large (max 100x100 for performance)")
     return [['-' for _ in range(width)] for _ in range(height)]
 
+def print_help():
+    """Print help information."""
+    help_text = """
+Squared Away Nonogram Generator
+
+USAGE:
+    python3 squared_away.py [options]
+    cat puzzle.txt | python3 squared_away.py
+
+OPTIONS:
+    -h, --help      Show this help message
+
+INPUT MODES:
+    1. File/Pipe Input: Provide grid data via stdin or file redirection
+       Example: python3 squared_away.py < puzzle.txt
+
+    2. Interactive Editor: Run without input to create new puzzles
+       - Enter width and height when prompted
+       - Click cells to toggle states in Phase 1 (shading)
+       - Press ENTER to advance to Phase 2 (erasing)
+       - Press ENTER again to save the puzzle
+
+GRID FORMAT:
+    Each line represents a row of the grid.
+    Valid characters:
+        '1' - Cell is shaded in Phase 1 only
+        '2' - Cell is erased in Phase 2 only  
+        'X' - Cell is used in both phases
+        '-' - Empty cell
+
+EXAMPLE GRID:
+    X1X-X2X
+    2-X-1-X
+    22X-11X
+
+KEYBOARD CONTROLS (Viewer Mode):
+    ENTER - Cycle through visualization phases
+
+KEYBOARD CONTROLS (Editor Mode):
+    ENTER - Advance to next phase or save puzzle
+
+MOUSE CONTROLS (Editor Mode):
+    Click - Toggle cell state in current phase
+"""
+    print(help_text)
+
 def main():
+    """Main entry point for the program."""
+    # Check for help flag
+    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
+        print_help()
+        return
+
     print("Squared Away Nonogram Generator")
+    
+    if not INTERACTIVE_DISPLAY:
+        print("Note: No interactive display available. Visualizations will be saved as images.")
 
     # Check if input is from a file/pipe or keyboard
     if not sys.stdin.isatty():
         # Reading from file or pipe
-        grid_str = sys.stdin.read()
-        process_nonogram(grid_str)
+        try:
+            grid_str = sys.stdin.read()
+            if not grid_str.strip():
+                print("Error: No input data provided")
+                print("Use -h or --help for usage information")
+                sys.exit(1)
+            process_nonogram(grid_str)
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user")
+            sys.exit(1)
     else:
         # Editor mode
+        if not INTERACTIVE_DISPLAY:
+            print("Warning: Editor mode requires an interactive display.")
+            print("Consider using file input instead: python3 squared_away.py < your_puzzle.txt")
+            
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
-            if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
-                return
-                
+            print("\nEntering puzzle editor mode...")
+            print("You'll create a two-phase nonogram puzzle:")
+            print("- Phase 1: Mark cells to be shaded")
+            print("- Phase 2: Mark cells to be erased")
+            
+            while True:
+                try:
+                    width_input = input("\nEnter puzzle width (1-100): ").strip()
+                    if not width_input:
+                        print("Please enter a number.")
+                        continue
+                    width = int(width_input)
+                    break
+                except ValueError:
+                    print("Please enter a valid integer.")
+                    
+            while True:
+                try:
+                    height_input = input("Enter puzzle height (1-100): ").strip()
+                    if not height_input:
+                        print("Please enter a number.")
+                        continue
+                    height = int(height_input)
+                    break
+                except ValueError:
+                    print("Please enter a valid integer.")
+            
             grid = create_empty_grid(width, height)
             visualizer = NonoGramVisualizer(grid, editor_mode=True)
             visualizer.visualize()
             
-        except ValueError:
-            print("Please enter valid integers for dimensions")
+        except ValueError as e:
+            print(f"Error: {e}")
+            print("Please enter valid integers for dimensions (1-100)")
+            sys.exit(1)
+        except KeyboardInterrupt:
+            print("\nOperation cancelled by user")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
