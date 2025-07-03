@@ -221,26 +221,39 @@ class NonoGramVisualizer:
         row_offset = max(2.5, self.max_row_clues * 0.7)
         col_offset = max(2.5, self.max_col_clues * 0.6)
 
-        # Draw the grid
+        # Draw the grid with darker lines for better definition
         for i in range(self.height + 1):
-            self.ax.axhline(y=i, color='black', linestyle='-', linewidth=1)
+            self.ax.axhline(y=i, color='#333333', linestyle='-', linewidth=1.2)
         for j in range(self.width + 1):
-            self.ax.axvline(x=j, color='black', linestyle='-', linewidth=1)
+            self.ax.axvline(x=j, color='#333333', linestyle='-', linewidth=1.2)
 
         # Fill cells based on phase or editor mode
         for i in range(self.height):
             for j in range(self.width):
                 cell = self.grid[i][j]
 
+                # Add light gray background for all cells
+                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                       facecolor='#f0f0f0', edgecolor='#333333',
+                                       alpha=1.0)
+                self.ax.add_patch(rect)
+
                 if self.current_phase == 0 and not self.editor_mode:  
-                    # Empty grid in initial phase
+                    # Empty grid in initial phase - just light gray background
                     pass
                 elif self.current_phase == 1 and not self.editor_mode:  
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='#404040', edgecolor='black',
-                                               alpha=0.9)
+                        if cell == 'X':
+                            # Both phases - purple with crosshatch
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor='#8A2BE2', edgecolor='#333333',
+                                                   hatch='xxx', alpha=0.9)
+                        else:
+                            # Phase 1 only - deep blue with lighter blue hatching
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor='#1E3A8A', edgecolor='#333333',
+                                                   hatch='...', alpha=0.9)
                         self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
@@ -249,69 +262,98 @@ class NonoGramVisualizer:
                         if self.editor_phase == 1:
                             # Phase 1 editing: show only phase 1 cells
                             if cell in ['1', 'X']:
-                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='#404040', edgecolor='black',
-                                                     alpha=0.9)
+                                if cell == 'X':
+                                    # Both phases - purple with crosshatch
+                                    rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                           facecolor='#8A2BE2', edgecolor='#333333',
+                                                           hatch='xxx', alpha=0.9)
+                                else:
+                                    # Phase 1 only - deep blue with lighter blue hatching
+                                    rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                           facecolor='#1E3A8A', edgecolor='#333333',
+                                                           hatch='...', alpha=0.9)
                                 self.ax.add_patch(rect)
                         else:
                             # Phase 2 editing: show all cells
                             # First show phase 1 cells
                             if cell in ['1', 'X']:
-                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='#404040', edgecolor='black',
-                                                     alpha=0.9)
+                                if cell == 'X':
+                                    # Both phases - purple with crosshatch
+                                    rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                           facecolor='#8A2BE2', edgecolor='#333333',
+                                                           hatch='xxx', alpha=0.9)
+                                else:
+                                    # Phase 1 only - deep blue with lighter blue hatching
+                                    rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                           facecolor='#1E3A8A', edgecolor='#333333',
+                                                           hatch='...', alpha=0.9)
                                 self.ax.add_patch(rect)
                             
                             # Then highlight phase 2 cells
-                            if cell in ['2', 'X']:
+                            if cell in ['2']:
+                                # Phase 2 only - coral/salmon with red hatching
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='white', edgecolor='red',
-                                                     hatch='///', alpha=0.85)
+                                                       facecolor='#FA8072', edgecolor='#333333',
+                                                       hatch='///', alpha=0.9)
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
-                        # First fill everything
-                        rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='#404040', edgecolor='black',
-                                               alpha=0.9)
-                        self.ax.add_patch(rect)
+                        # First fill everything with phase 1 style
+                        if cell in ['1', 'X']:
+                            if cell == 'X':
+                                # Both phases - purple with crosshatch
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                       facecolor='#8A2BE2', edgecolor='#333333',
+                                                       hatch='xxx', alpha=0.9)
+                            else:
+                                # Phase 1 only - deep blue with lighter blue hatching
+                                rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                       facecolor='#1E3A8A', edgecolor='#333333',
+                                                       hatch='...', alpha=0.9)
+                            self.ax.add_patch(rect)
+                        else:
+                            # Fill remaining cells with deep blue for phase 2 context
+                            rect = patches.Rectangle((j, self.height-i-1), 1, 1,
+                                                   facecolor='#1E3A8A', edgecolor='#333333',
+                                                   hatch='...', alpha=0.9)
+                            self.ax.add_patch(rect)
                         
-                        # Then show cells that should be erased with a distinctive pattern
+                        # Then show cells that should be erased with coral/salmon pattern
                         if cell in ['2', 'X']:
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='white', edgecolor='red', 
-                                                 hatch='///', alpha=0.85)
+                                                   facecolor='#FA8072', edgecolor='#333333', 
+                                                   hatch='///', alpha=0.9)
                             self.ax.add_patch(rect)
 
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (dark blue) --
             if clues:  # Only display if there are clues
                 clue_text = ' '.join(map(str, clues))
                 self.ax.text(-0.5, self.height-i-0.5, clue_text,
-                             ha='right', va='center', fontsize=10)
+                             ha='right', va='center', fontsize=10, color='#1E3A8A', fontweight='bold')
             
             # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_row_clues[i]
             if erasing_clues:  # Only display if there are clues
                 erasing_text = ' '.join(map(str, erasing_clues))
                 self.ax.text(-0.5, self.height-i-0.8, erasing_text,
-                             ha='right', va='center', fontsize=10, color='red')
+                             ha='right', va='center', fontsize=10, color='red', fontweight='bold')
 
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
-            # -- Phase 1 clues (black) --
+            # -- Phase 1 clues (dark blue) --
             if clues:  # Only display if there are clues
                 clue_text = '\n'.join(map(str, clues))
                 self.ax.text(j+0.5, self.height+0.1, clue_text,
-                             ha='center', va='bottom', fontsize=10)
+                             ha='center', va='bottom', fontsize=10, color='#1E3A8A', fontweight='bold')
             
             # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_col_clues[j]
             if erasing_clues:  # Only display if there are clues
                 erasing_text = '\n'.join(map(str, erasing_clues))
                 self.ax.text(j+0.8, self.height+0.1, erasing_text,
-                             ha='center', va='bottom', fontsize=10, color='red')
+                             ha='center', va='bottom', fontsize=10, color='red', fontweight='bold')
 
         # Set the view limits
         self.ax.set_xlim(-row_offset, self.width)
