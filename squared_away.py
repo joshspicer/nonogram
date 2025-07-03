@@ -239,8 +239,8 @@ class NonoGramVisualizer:
                     # Phase 1: Apply foundation protocol
                     if cell in ['1', 'X']:
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black',
-                                               hatch='xxx', alpha=0.7)
+                                               facecolor='#404040', edgecolor='black',
+                                               alpha=0.9)
                         self.ax.add_patch(rect)
                 else:  
                     # Phase 2 or editor mode
@@ -250,35 +250,37 @@ class NonoGramVisualizer:
                             # Phase 1 editing: show only phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black',
-                                                     hatch='xxx', alpha=0.7)
+                                                     facecolor='#404040', edgecolor='black',
+                                                     alpha=0.9)
                                 self.ax.add_patch(rect)
                         else:
                             # Phase 2 editing: show all cells
                             # First show phase 1 cells
                             if cell in ['1', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='gray', edgecolor='black')
+                                                     facecolor='#404040', edgecolor='black',
+                                                     alpha=0.9)
                                 self.ax.add_patch(rect)
                             
                             # Then highlight phase 2 cells
                             if cell in ['2', 'X']:
                                 rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                     facecolor='white', edgecolor='black',
-                                                     hatch='///', alpha=0.7)
+                                                     facecolor='white', edgecolor='red',
+                                                     hatch='///', alpha=0.85)
                                 self.ax.add_patch(rect)
                     else:
                         # Phase 2: Fill everything, then show erased cells
                         # First fill everything
                         rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                               facecolor='gray', edgecolor='black')
+                                               facecolor='#404040', edgecolor='black',
+                                               alpha=0.9)
                         self.ax.add_patch(rect)
                         
                         # Then show cells that should be erased with a distinctive pattern
                         if cell in ['2', 'X']:
                             rect = patches.Rectangle((j, self.height-i-1), 1, 1,
-                                                 facecolor='white', edgecolor='black', 
-                                                 hatch='///', alpha=0.7)
+                                                 facecolor='white', edgecolor='red', 
+                                                 hatch='///', alpha=0.85)
                             self.ax.add_patch(rect)
 
         # -- Row Clues --
