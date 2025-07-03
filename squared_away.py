@@ -204,6 +204,39 @@ class NonoGramVisualizer:
     def next_phase(self, event=None):
         self.current_phase = (self.current_phase + 1) % 3
         self.draw_puzzle()
+    
+    def resize_grid(self, new_width, new_height):
+        """Resize the grid to new dimensions, preserving existing data where possible"""
+        if new_width <= 0 or new_height <= 0:
+            raise ValueError("Grid dimensions must be positive integers")
+        
+        # Create new grid with specified dimensions, filled with empty cells
+        new_grid = [['-' for _ in range(new_width)] for _ in range(new_height)]
+        
+        # Copy existing cell data that fits within the new bounds
+        copy_height = min(self.height, new_height)
+        copy_width = min(self.width, new_width)
+        
+        for i in range(copy_height):
+            for j in range(copy_width):
+                new_grid[i][j] = self.grid[i][j]
+        
+        # Update grid and dimensions
+        self.grid = new_grid
+        self.width = new_width
+        self.height = new_height
+        
+        # Regenerate clues for the new grid
+        self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
+        self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
+        
+        # Recalculate max number of clues for sizing
+        self.max_row_clues = max(len(clues) for clues in self.shading_row_clues)
+        self.max_col_clues = max(len(clues) for clues in self.shading_col_clues)
+        
+        # Redraw the puzzle with new dimensions (only if figure exists)
+        if self.fig is not None and self.ax is not None:
+            self.draw_puzzle()
         
     def draw_puzzle(self):
         self.ax.clear()
@@ -323,7 +356,11 @@ class NonoGramVisualizer:
         self.setup_figure()
         self.draw_puzzle()
 
-        instruction = "Press ENTER to cycle modes"
+        if self.editor_mode:
+            instruction = "Click to edit cells • ENTER to advance/save • R to resize grid"
+        else:
+            instruction = "Press ENTER to cycle modes"
+        
         self.ax.text(self.width/2, -2.0, instruction, ha="center", va="center", 
                     fontsize=12, fontweight="bold", color="blue",
                     bbox=dict(boxstyle="round", fc="white", ec="blue", alpha=0.8))
@@ -343,7 +380,8 @@ class NonoGramVisualizer:
                     
                     # Advance to phase 2
                     self.editor_phase = 2
-                    self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
+                    if self.fig is not None:
+                        self.fig.suptitle("Nonogram Editor Mode - Phase 2: Erasing", fontsize=16)
                     print("Phase 1 completed. Now enter the cells to erase in Phase 2.")
                     
                     # Restore grid state to prevent unwanted changes
@@ -352,7 +390,8 @@ class NonoGramVisualizer:
                     # Update clues and redraw
                     self.shading_row_clues, self.shading_col_clues = generate_shading_clues(self.grid)
                     self.erasing_row_clues, self.erasing_col_clues = generate_erasing_clues(self.grid)
-                    self.draw_puzzle()
+                    if self.fig is not None and self.ax is not None:
+                        self.draw_puzzle()
                 else:
                     # Save the completed puzzle
                     filename = "nonogram_puzzle.txt"
@@ -362,11 +401,38 @@ class NonoGramVisualizer:
                     print(f"Puzzle saved to {filename}")
                     
                     # Close the figure
-                    plt.close(self.fig)
+                    if self.fig is not None:
+                        plt.close(self.fig)
             else:
                 # In viewing mode, use Enter to advance phase
                 self.current_phase = (self.current_phase + 1) % 3
-                self.draw_puzzle()
+                if self.fig is not None and self.ax is not None:
+                    self.draw_puzzle()
+        elif event.key == 'r' and self.editor_mode:
+            # Handle resize in editor mode
+            try:
+                print("Resize Grid")
+                print(f"Current size: {self.width} x {self.height}")
+                
+                # Get new dimensions from user
+                new_width_str = input("Enter new width: ")
+                new_height_str = input("Enter new height: ")
+                
+                new_width = int(new_width_str)
+                new_height = int(new_height_str)
+                
+                if new_width <= 0 or new_height <= 0:
+                    print("Error: Dimensions must be positive integers")
+                    return
+                
+                # Perform the resize
+                self.resize_grid(new_width, new_height)
+                print(f"Grid resized to {new_width} x {new_height}")
+                
+            except ValueError:
+                print("Error: Please enter valid integers for dimensions")
+            except Exception as e:
+                print(f"Error resizing grid: {e}")
 
 def process_nonogram(grid_str):
     """Process the nonogram grid and visualize it."""
