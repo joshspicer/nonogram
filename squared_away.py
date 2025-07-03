@@ -209,6 +209,8 @@ class NonoGramVisualizer:
         """Resize the grid to new dimensions, preserving existing data where possible"""
         if new_width <= 0 or new_height <= 0:
             raise ValueError("Grid dimensions must be positive integers")
+        if new_width > 100 or new_height > 100:
+            raise ValueError("Grid dimensions must be 100 or less for performance reasons")
         
         # Create new grid with specified dimensions, filled with empty cells
         new_grid = [['-' for _ in range(new_width)] for _ in range(new_height)]
@@ -413,24 +415,31 @@ class NonoGramVisualizer:
             try:
                 print("Resize Grid")
                 print(f"Current size: {self.width} x {self.height}")
+                print("Size limits: 1-100 for both width and height")
                 
                 # Get new dimensions from user
-                new_width_str = input("Enter new width: ")
-                new_height_str = input("Enter new height: ")
+                new_width_str = input("Enter new width (1-100): ")
+                new_height_str = input("Enter new height (1-100): ")
                 
                 new_width = int(new_width_str)
                 new_height = int(new_height_str)
                 
                 if new_width <= 0 or new_height <= 0:
-                    print("Error: Dimensions must be positive integers")
+                    print("Error: Dimensions must be positive integers (1-100)")
+                    return
+                if new_width > 100 or new_height > 100:
+                    print("Error: Dimensions must be 100 or less for performance reasons")
                     return
                 
                 # Perform the resize
                 self.resize_grid(new_width, new_height)
                 print(f"Grid resized to {new_width} x {new_height}")
                 
-            except ValueError:
-                print("Error: Please enter valid integers for dimensions")
+            except ValueError as ve:
+                if "positive integers" in str(ve) or "100 or less" in str(ve):
+                    print(f"Error: {ve}")
+                else:
+                    print("Error: Please enter valid integers for dimensions (1-100)")
             except Exception as e:
                 print(f"Error resizing grid: {e}")
 
@@ -455,10 +464,14 @@ def main():
     else:
         # Editor mode
         try:
-            width = int(input("Enter puzzle width: "))
-            height = int(input("Enter puzzle height: "))
+            print("Enter puzzle dimensions (1-100 for both width and height)")
+            width = int(input("Enter puzzle width (1-100): "))
+            height = int(input("Enter puzzle height (1-100): "))
             if width <= 0 or height <= 0:
-                print("Dimensions must be positive integers")
+                print("Error: Dimensions must be positive integers (1-100)")
+                return
+            if width > 100 or height > 100:
+                print("Error: Dimensions must be 100 or less for performance reasons")
                 return
                 
             grid = create_empty_grid(width, height)
@@ -466,7 +479,7 @@ def main():
             visualizer.visualize()
             
         except ValueError:
-            print("Please enter valid integers for dimensions")
+            print("Please enter valid integers for dimensions (1-100)")
 
 if __name__ == "__main__":
     main()
