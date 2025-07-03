@@ -35,7 +35,7 @@ def generate_shading_clues(grid):
                 count = 0
         if count > 0:
             clues.append(count)
-        row_clues.append(clues if clues else [0])
+        row_clues.append(clues if clues else [])
     
     col_clues = []
     for col_idx in range(len(grid[0])):
@@ -50,7 +50,7 @@ def generate_shading_clues(grid):
                 count = 0
         if count > 0:
             clues.append(count)
-        col_clues.append(clues if clues else [0])
+        col_clues.append(clues if clues else [])
     
     return row_clues, col_clues
 
@@ -69,7 +69,7 @@ def generate_erasing_clues(grid):
                 count = 0
         if count > 0:
             clues.append(count)
-        row_clues.append(clues if clues else [0])
+        row_clues.append(clues if clues else [])
     
     col_clues = []
     for col_idx in range(len(grid[0])):
@@ -84,7 +84,7 @@ def generate_erasing_clues(grid):
                 count = 0
         if count > 0:
             clues.append(count)
-        col_clues.append(clues if clues else [0])
+        col_clues.append(clues if clues else [])
     
     return row_clues, col_clues
 
@@ -284,13 +284,14 @@ class NonoGramVisualizer:
         # -- Row Clues --
         for i, clues in enumerate(self.shading_row_clues):
             # -- Phase 1 clues (black) --
-            clue_text = ' '.join(map(str, clues))
-            self.ax.text(-0.5, self.height-i-0.5, clue_text,
-                         ha='right', va='center', fontsize=10)
+            if clues:  # Only display if there are clues
+                clue_text = ' '.join(map(str, clues))
+                self.ax.text(-0.5, self.height-i-0.5, clue_text,
+                             ha='right', va='center', fontsize=10)
             
             # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_row_clues[i]
-            if erasing_clues != [0]:
+            if erasing_clues:  # Only display if there are clues
                 erasing_text = ' '.join(map(str, erasing_clues))
                 self.ax.text(-0.5, self.height-i-0.8, erasing_text,
                              ha='right', va='center', fontsize=10, color='red')
@@ -298,13 +299,14 @@ class NonoGramVisualizer:
         # -- Column Clues --
         for j, clues in enumerate(self.shading_col_clues):
             # -- Phase 1 clues (black) --
-            clue_text = '\n'.join(map(str, clues))
-            self.ax.text(j+0.5, self.height+0.1, clue_text,
-                         ha='center', va='bottom', fontsize=10)
+            if clues:  # Only display if there are clues
+                clue_text = '\n'.join(map(str, clues))
+                self.ax.text(j+0.5, self.height+0.1, clue_text,
+                             ha='center', va='bottom', fontsize=10)
             
             # -- Phase 2 clues (red) --
             erasing_clues = self.erasing_col_clues[j]
-            if erasing_clues != [0]:
+            if erasing_clues:  # Only display if there are clues
                 erasing_text = '\n'.join(map(str, erasing_clues))
                 self.ax.text(j+0.8, self.height+0.1, erasing_text,
                              ha='center', va='bottom', fontsize=10, color='red')
